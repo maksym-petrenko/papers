@@ -1,0 +1,12 @@
+name: relu_kan
+channels:
+  - conda-forge
+  - defaults
+  - pytorch
+dependencies:
+  - python >= 3.11.*
+  - pip
+  - pytorch
+  - torchvision
+  - pip:
+    - numpy
