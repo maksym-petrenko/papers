@@ -17,7 +17,7 @@ class Attention(nn.Module):
         self.v = nn.Linear(embeddings_size, embeddings_size)
 
 
-    def forward(self, x):
+    def forward(self, x, masked: bool = False):
         
         Q = self.q(x)
         K = self.k(x)
@@ -27,6 +27,10 @@ class Attention(nn.Module):
 
         scores = torch.matmul(Q, K)
         scores = scores / torch.sqrt(self.embeddings_size)
+        
+        if masked:
+            mask = torch.tril(self.input_dim, self.input_dim).bool().to(x.device)
+            scores = masked_fill(mask, float("-inf"))
 
         scores = nn.Softmax(scores, dim=2)
 
