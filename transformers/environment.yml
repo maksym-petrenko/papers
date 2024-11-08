@@ -1,0 +1,9 @@
+name: transformers
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+dependencies:
+  - python >= 3.11.*
+  - pytorch
+  - numpy
