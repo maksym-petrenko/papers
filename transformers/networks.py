@@ -111,14 +111,21 @@ class TransformersEncoder(nn.Module):
             d_model=d_model,
             masked=False
         )
+        self.ln1 = LayerNorm(d_model)
 
         self.ffn = nn.Linear(d_model, d_model)
+        self.ln2 = LayerNorm(d_model)
+        
 
     def forward(self, x):
         
         y = self.mh_attention(x)
-        
         x = x + y
+        x = self.ln1(x)
 
-        ## TODO
+        y = self.ffn(x)
+        x = x + y
+        x = self.ln2(x)
+
+        return x
 
