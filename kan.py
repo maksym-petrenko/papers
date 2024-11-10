@@ -39,13 +39,7 @@ class ReLUKAN(nn.Module):
         self.g = g 
         self.k = k
 
-        for i in range(len(dimensions) - 1):
-            self.layers.append(ReLUKANLayer(dimensions[i], g, k, dimensions[i+1]).to('cuda'))
-    
-    def parameters(self):
-        for layer in self.layers:
-            for param in layer.parameters():
-                yield param
+        self.layers = nn.ModuleList([ReLUKANLayer(dimensions[i], g, k, dimensions[i+1]) for i in range(len(dimensions) - 1)])
 
     def forward(self, x):
 

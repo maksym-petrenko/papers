@@ -21,10 +21,6 @@ class ReLUKAN_MNIST(nn.Module):
         x = nn.Softmax()(x)
         return x
 
-    def parameters(self):
-
-        return self.kan.parameters()
-
 model = ReLUKAN_MNIST()
 model = model.to('cuda')
 print(next(model.parameters()).device)
