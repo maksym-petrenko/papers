@@ -6,19 +6,19 @@ import numpy as np
 class Attention(nn.Module):
 
     def __init__(self, 
-            q_dim: int,
-            k_dim: int, 
+            d_q: int,
+                 d_k: int, 
             d_model: int, 
             masked: bool = False
         ):
 
         super().__init__()
         
-        self.q_dim = q_dim
-        self.k_dim = k_dim
+        self.d_q = d_q
+        self.d_k = d_k
         self.d_model = d_model
 
-        if masked and q_dim != k_dim:
+        if masked and d_q != d_k:
             raise Exception("Only self attention supports masking")
         self.masked = masked
 
@@ -27,10 +27,13 @@ class Attention(nn.Module):
         self.v = nn.Linear(d_model, d_model)
 
 
-    def forward(self, x):
+    def forward(self, x, y=None):
+
+        if y is None:
+            y = x
         
         Q = self.q(x)
-        K = self.k(x)
+        K = self.k(y)
         V = self.v(x)
         
         K = torch.transpose(K, -2, -1)
@@ -52,8 +55,8 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(self, 
             num_heads: int, 
-            q_dim: int, 
-            k_dim: int,
+            d_q: int, 
+            d_k: int,
             d_model: int, 
             masked: bool = False
         ):
@@ -61,8 +64,8 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         
         self.num_heads = num_heads  
-        self.k_dim = k_dim
-        self.q_dim = q_dim
+        self.d_k = d_k
+        self.d_q = d_q
         self.d_model = d_model
         
         if d_model % heads:
@@ -70,13 +73,16 @@ class MultiHeadAttention(nn.Module):
 
         self.d_heads = d_model / num_heads
         
-        self.heads = nn.ModuleList([Attention(q_dim, k_dim, self.d_heads, masked) for _ in range(num_heads)])
+        self.heads = nn.ModuleList([Attention(d_q, d_k, self.d_heads, masked) for _ in range(num_heads)])
         self.WO = nn.Linear(d_model, d_model)
 
-    def forward(self, x):
+    def forward(self, x, y=None):
 
-        head_chunks = torch.split(x, self.d_heads, dim=-1)
-        head_chunks = [head(chunk) for head, chunk in zip(self.num_heads, head_chunks)]
+        if y is None:
+            x = y
+
+        chunks = torch.split(x, self.d_heads, dim=-1)
+        head_chunks = [head(chunk, y) for head, chunk in zip(self.num_heads, chunks)]
         
         concatenated = torch.cat(head_chunks, dim=-1)
 
@@ -143,10 +149,29 @@ class TransformersEncoder(nn.Module):
 
 class TransformersDecoder(nn.Module):
 
-    def __init__(self):
+    def __init__(self, hum_heads: int, d_q: int, d_k: int, d_model):
 
         super.__init__()
 
-    def forward(self, x): 
+        self.self_attention = MultiHeadAttention(
+            num_heads=num_heads, 
+            d_q=d_q, 
+            d_k=d_q, 
+            masked=True
+        )
+        self.n1 = LayerNorm(d_model)
+
+        self.cross_attention = MultiHeadAttention(
+            num_heads=num_heads,
+            d_q=d_q,
+            d_k=d_k,
+            masked=False
+        )
+        self.n2 = LayerNorm(d_model)
+        
+        self.linear = nn.Linear(d_model, d_model)
+        self.n3 = LayerNorm(d_model)
+
+    def forward(self, x, y):
 
         pass
