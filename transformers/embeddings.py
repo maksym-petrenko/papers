@@ -26,30 +26,3 @@ def load_glove_embeddings(path: str = 'glove.6B.300d.txt') -> tuple[Dict[str, in
     embeddings = torch.stack(embeddings_list)
     return word2idx, embeddings
 
-class GloveEmbedding(nn.Module):
-    
-    def __init__(
-        self, 
-        word2idx: Dict[str, int],
-        embeddings: torch.Tensor,
-freeze: bool = True
-    ):
-        
-        super().__init__()
-        self.word2idx = word2idx
-        self.embedding = nn.Embedding.from_pretrained(
-            embeddings,
-            padding_idx=0,
-            freeze=freeze
-        )
-        
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        
-        return self.embedding(x)
-    
-    def encode_text(self, text: str) -> torch.Tensor:
-    
-        words = text.lower().split()
-        indices = [self.word2idx.get(word, 1) for word in words]
-        return torch.tensor(indices)
-

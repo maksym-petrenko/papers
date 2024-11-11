@@ -1,6 +1,8 @@
 from torch import nn
 import torch
 import numpy as np 
+from embeddings import load_glove_embeddings
+from helper import positional_encoding
 
 
 class Attention(nn.Module):
@@ -22,9 +24,9 @@ class Attention(nn.Module):
             raise Exception("Only self attention supports masking")
         self.masked = masked
 
-        self.q = nn.Linear(d_model, d_model)
-        self.k = nn.Linear(d_model, d_model)
-        self.v = nn.Linear(d_model, d_model)
+        self.q = nn.ffn(d_model, d_model)
+        self.k = nn.ffn(d_model, d_model)
+        self.v = nn.ffn(d_model, d_model)
 
 
     def forward(self, x, y=None):
@@ -74,7 +76,7 @@ class MultiHeadAttention(nn.Module):
         self.d_heads = d_model / num_heads
         
         self.heads = nn.ModuleList([Attention(d_q, d_k, self.d_heads, masked) for _ in range(num_heads)])
-        self.WO = nn.Linear(d_model, d_model)
+        self.WO = nn.ffn(d_model, d_model)
 
     def forward(self, x, y=None):
 
@@ -116,7 +118,7 @@ class TransformersEncoder(nn.Module):
 
     def __init__(self, 
             num_heads: int, 
-            input_dim: int, 
+            d_q: int, 
             d_model: int, 
         ):
 
@@ -124,24 +126,22 @@ class TransformersEncoder(nn.Module):
         
         self.mh_attention = MultiHeadAttention(
             num_heads=num_heads,
-            input_dim=input_dim,
+            d_q=d_q,
             d_model=d_model,
             masked=False
         )
         self.ln1 = LayerNorm(d_model)
 
-        self.ffn = nn.Linear(d_model, d_model)
+        self.ffn = nn.ffn(d_model, d_model)
         self.ln2 = LayerNorm(d_model)
         
 
     def forward(self, x):
         
-        y = self.mh_attention(x)
-        x = x + y
+        x = x + self.mh_attention(x)
         x = self.ln1(x)
 
-        y = self.ffn(x)
-        x = x + y
+        x = x + self.ffn(x)
         x = self.ln2(x)
 
         return x
@@ -169,9 +169,45 @@ class TransformersDecoder(nn.Module):
         )
         self.n2 = LayerNorm(d_model)
         
-        self.linear = nn.Linear(d_model, d_model)
+        self.ffn = nn.ffn(d_model, d_model)
         self.n3 = LayerNorm(d_model)
 
     def forward(self, x, y):
 
+        x = x + self.self_attention(x)
+        x = self.n1(x)
+        
+        x = x + self.cross_attention(x, y)
+        x = self.n2(x)
+
+        x = x + self.ffn(x)
+        x = self.n3(x)
+
+        return x
+
+
+class Transformers(nn.Module):
+
+    def __init__(self
+            # TODO
+        ):
+
+        super.__init__()
+
+        self.word2idx, self.embeddings = load_glove_embeddings()
+        self.idx2word = {idx: word for word, idx in self.word2idx.items()}
+        self.vocab_size = len(self.word2idx)
+        self.d_model = self.embeddings.size(1)
+
+        self.input_embedding = nn.Embedding.from_pretrained(self.embeddings, freeze=True)
+        self.output_embedding = self.input_embedding
+        
+        self.encoders = nn.ModuleList([TransformersEncoder(enc_heads, d_q, self.d_model) for _ in range(encoder_depth)])
+        self.decoders = nn.ModuleList([TransformersDecoder(dec_heads, d_q, d_k, self.d_model) for _ in range(decoder_depth)])
+        
+        self.linear = nn.Linear(self.d_model, self.d_model)
+
+    def forward(x):
+
         pass
+
