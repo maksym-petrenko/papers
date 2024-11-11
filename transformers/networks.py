@@ -5,12 +5,21 @@ import numpy as np
 
 class Attention(nn.Module):
 
-    def __init__(self, input_dim: int, d_model: int, masked: bool = False):
+    def __init__(self, 
+            q_dim: int,
+            k_dim: int, 
+            d_model: int, 
+            masked: bool = False
+        ):
 
         super().__init__()
         
-        self.input_dim = input_dim
+        self.q_dim = q_dim
+        self.k_dim = k_dim
         self.d_model = d_model
+
+        if masked and q_dim != k_dim:
+            raise Exception("Only self attention supports masking")
         self.masked = masked
 
         self.q = nn.Linear(d_model, d_model)
@@ -30,7 +39,7 @@ class Attention(nn.Module):
         scores = scores / torch.sqrt(self.d_model)
         
         if self.masked:
-            mask = torch.tril(self.input_dim, self.input_dim).bool().to(x.device)
+            mask = torch.tril(self.k, self.k).bool().to(x.device)
             scores = masked_fill(mask, float("-inf"))
 
         scores = nn.Softmax(scores, dim=2)
@@ -43,7 +52,8 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(self, 
             num_heads: int, 
-            input_dim: int, 
+            q_dim: int, 
+            k_dim: int,
             d_model: int, 
             masked: bool = False
         ):
@@ -51,20 +61,21 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         
         self.num_heads = num_heads  
-        self.input_dim = input_dim
+        self.k_dim = k_dim
+        self.q_dim = q_dim
         self.d_model = d_model
         
         if d_model % heads:
             raise Ecxeption("`d_model` must be divisible by `heads`!")
 
-        self.local_embed_size = d_model / num_heads
+        self.d_heads = d_model / num_heads
         
-        self.heads = nn.ModuleList([Attention(input_dim, self.local_embed_size, masked) for _ in range(num_heads)])
+        self.heads = nn.ModuleList([Attention(q_dim, k_dim, self.d_heads, masked) for _ in range(num_heads)])
         self.WO = nn.Linear(d_model, d_model)
 
     def forward(self, x):
 
-        head_chunks = torch.split(x, self.local_embed_size, dim=-1)
+        head_chunks = torch.split(x, self.d_heads, dim=-1)
         head_chunks = [head(chunk) for head, chunk in zip(self.num_heads, head_chunks)]
         
         concatenated = torch.cat(head_chunks, dim=-1)
@@ -129,3 +140,13 @@ class TransformersEncoder(nn.Module):
 
         return x
 
+
+class TransformersDecoder(nn.Module):
+
+    def __init__(self):
+
+        super.__init__()
+
+    def forward(self, x): 
+
+        pass
