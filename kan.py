@@ -18,15 +18,21 @@ class ReLUKANLayer(nn.Module):
 
         
     def forward(self, x):
-        x = x.unsqueeze(1).expand(-1, self.k+self.g)
-        x1 = torch.relu(x - self.phase_low)
-        x2 = torch.relu(self.phase_height - x)
+        # Add batch support
+        batch_size = x.size(0)
+        phase_low = self.phase_low.unsqueeze(0).expand(batch_size, -1, -1)
+        phase_height = self.phase_height.unsqueeze(0).expand(batch_size, -1, -1)
+        
+        x = x.unsqueeze(2).expand(-1, -1, self.k + self.g)
+        x1 = torch.relu(x - phase_low)
+        x2 = torch.relu(phase_height - x)
         x = x1 * x2 * self.r
         x = x * x
-        x = x.reshape((1, self.g + self.k, self.input_size))
+        
+        x = x.permute(0, 2, 1).unsqueeze(1)
         x = self.equal_size_conv(x)
-        x = x.reshape((self.output_size, 1))
-        x = x.squeeze()
+        x = x.squeeze(-1).squeeze(-1)
+
         return x
 
 

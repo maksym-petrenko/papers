@@ -12,13 +12,14 @@ class ReLUKAN_MNIST(nn.Module):
     def __init__(self):
         
         super().__init__()
-        self.kan = ReLUKAN([28*28, 128, 32, 10], 5, 3)
+        self.kan = ReLUKAN([28**2, 128, 32, 10], 5, 3)
         
     def forward(self, x):
 
-        x = x.flatten()
+        x = x.reshape(x.shape[0], -1)
         x = self.kan(x)
         x = nn.Softmax()(x)
+        
         return x
 
 model = ReLUKAN_MNIST()
@@ -28,10 +29,10 @@ print(next(model.parameters()).device)
 
 transform = Compose([ToTensor()])
 train_dataset = MNIST(root='./data', train=True, download=True, transform=transform)
-train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=1e-5)
 
 num_epochs = 1000
 
@@ -41,8 +42,7 @@ for epoch in range(num_epochs):
         inputs, labels = inputs.to('cuda'), labels.to('cuda')
         outputs = model(inputs)
 
-        one_hot = torch.zeros(10, dtype=torch.float32).to('cuda')
-        one_hot[labels[0]] = 1
+        one_hot = nn.functional.one_hot(labels, num_classes=10).to(dtype=torch.float32)
 
         loss = criterion(outputs, one_hot)
 
