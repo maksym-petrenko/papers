@@ -1,4 +1,6 @@
 import torch
+import neptune
+import os
 from torch import nn
 from kan import ReLUKAN
 import torch.optim as optim
@@ -6,6 +8,14 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor
 from torch.utils.data import DataLoader, random_split
 
+NEPTUNE = True
+
+
+if NEPTUNE:
+    run = neptune.init_run(
+        project="maksym-petrenko/relu-kan-mnist",
+        api_token=os.environ["RELUKAN_NEPTUNE_API"],
+    )
 
 class ReLUKAN_MNIST(nn.Module):
 
@@ -38,6 +48,10 @@ val_loader = DataLoader(val_subset, batch_size=1024, shuffle=True)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-5)
 
+if NEPTUNE:
+    params = {"learning_rate": 1e-5, "optimizer": "Adam"}
+    run["parameters"] = params
+
 verbose = True
 num_epochs = 1000
 
@@ -57,6 +71,9 @@ for epoch in range(num_epochs):
         
         running_loss += loss.item()
     
+    if NEPTUNE:
+        run["train/loss"].append(running_loss / len(train_loader))
+
     if verbose:
         print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss / len(train_loader)}')
     
@@ -73,3 +90,6 @@ for epoch in range(num_epochs):
                 correct += (predicted == labels).sum().item()
             
             print(f'Accuracy on the validation set: {100 * correct / total}%')
+        if NEPTUNE:
+            run["val/accuracy"].append(correct / total)
+
