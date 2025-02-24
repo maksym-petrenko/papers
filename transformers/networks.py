@@ -71,7 +71,7 @@ class MultiHeadAttention(nn.Module):
         self.d_model = d_model
         
         if d_model % num_heads:
-            raise Ecxeption("`d_model` must be divisible by `num_heads`!")
+            raise Exception("`d_model` must be divisible by `num_heads`!")
 
         self.d_heads = d_model / num_heads
         
@@ -118,7 +118,7 @@ class TransformersEncoder(nn.Module):
 
     def __init__(self, 
             num_heads: int, 
-            d_q: int, 
+            d_q: int,
             d_model: int, 
         ):
 
@@ -127,6 +127,7 @@ class TransformersEncoder(nn.Module):
         self.mh_attention = MultiHeadAttention(
             num_heads=num_heads,
             d_q=d_q,
+            d_k=d_q,
             d_model=d_model,
             masked=False
         )
@@ -212,6 +213,56 @@ class Transformers(nn.Module):
         
         self.linear = nn.Linear(self.d_model, self.d_model)
 
-    def forward(self, x):
+    def forward(self, src, tgt):
+        src_embedded = self.input_embedding(src)
+        tgt_embedded = self.output_embedding(tgt)
+        
+        src_pos = self.pos_encoding[:, :src_embedded.size(1)]
+        tgt_pos = self.pos_encoding[:, :tgt_embedded.size(1)]
+        
+        src_embedded = src_embedded + src_pos
+        tgt_embedded = tgt_embedded + tgt_pos
+        
+        enc_output = src_embedded
+        for encoder in self.encoders:
+            enc_output = encoder(enc_output)
+            
+        dec_output = tgt_embedded
+        for decoder in self.decoders:
+            dec_output = decoder(dec_output, enc_output)
+            
+        output = self.linear(dec_output)
+        
+        return output
 
-        pass
+    def generate(self, src, max_length: int = 100):
+        self.eval()
+        with torch.no_grad():
+            src_embedded = self.input_embedding(src)
+            src_pos = self.pos_encoding[:, :src_embedded.size(1)]
+            src_embedded = src_embedded + src_pos
+            
+            enc_output = src_embedded
+            for encoder in self.encoders:
+                enc_output = encoder(enc_output)
+            
+            tgt = torch.full((src.size(0), 1), self.word2idx['<start>'], device=src.device)
+            
+            for _ in range(max_length):
+                tgt_embedded = self.output_embedding(tgt)
+                tgt_pos = self.pos_encoding[:, :tgt_embedded.size(1)]
+                tgt_embedded = tgt_embedded + tgt_pos
+                
+                dec_output = tgt_embedded
+                for decoder in self.decoders:
+                    dec_output = decoder(dec_output, enc_output)
+                
+                output = self.linear(dec_output)
+                next_token = output[:, -1].argmax(dim=-1)
+                
+                if next_token.item() == self.word2idx['<end>']:
+                    break
+                    
+                tgt = torch.cat([tgt, next_token.unsqueeze(1)], dim=1)
+            
+            return tgt
