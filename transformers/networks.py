@@ -24,9 +24,9 @@ class Attention(nn.Module):
             raise Exception("Only self attention supports masking")
         self.masked = masked
 
-        self.q = nn.ffn(d_model, d_model)
-        self.k = nn.ffn(d_model, d_model)
-        self.v = nn.ffn(d_model, d_model)
+        self.q = nn.Linear(d_model, d_model)
+        self.k = nn.Linear(d_model, d_model)
+        self.v = nn.Linear(d_model, d_model)
 
 
     def forward(self, x, y=None):
@@ -70,13 +70,13 @@ class MultiHeadAttention(nn.Module):
         self.d_q = d_q
         self.d_model = d_model
         
-        if d_model % heads:
-            raise Ecxeption("`d_model` must be divisible by `heads`!")
+        if d_model % num_heads:
+            raise Ecxeption("`d_model` must be divisible by `num_heads`!")
 
         self.d_heads = d_model / num_heads
         
         self.heads = nn.ModuleList([Attention(d_q, d_k, self.d_heads, masked) for _ in range(num_heads)])
-        self.WO = nn.ffn(d_model, d_model)
+        self.WO = nn.Linear(d_model, d_model)
 
     def forward(self, x, y=None):
 
@@ -97,7 +97,7 @@ class LayerNorm(nn.Module):
 
     def __init__(self, d_model: int):
 
-        super.__init__()
+        super().__init__()
         
         self.g = nn.Parameter(torch.ones(d_model))
         self.b = nn.Parameter(torch.zeros(d_model))
@@ -132,7 +132,7 @@ class TransformersEncoder(nn.Module):
         )
         self.ln1 = LayerNorm(d_model)
 
-        self.ffn = nn.ffn(d_model, d_model)
+        self.ffn = nn.Linear(d_model, d_model)
         self.ln2 = LayerNorm(d_model)
         
 
@@ -149,7 +149,7 @@ class TransformersEncoder(nn.Module):
 
 class TransformersDecoder(nn.Module):
 
-    def __init__(self, hum_heads: int, d_q: int, d_k: int, d_model):
+    def __init__(self, num_heads: int, d_q: int, d_k: int, d_model):
 
         super.__init__()
 
@@ -169,7 +169,7 @@ class TransformersDecoder(nn.Module):
         )
         self.n2 = LayerNorm(d_model)
         
-        self.ffn = nn.ffn(d_model, d_model)
+        self.ffn = nn.Linear(d_model, d_model)
         self.n3 = LayerNorm(d_model)
 
     def forward(self, x, y):
@@ -188,11 +188,16 @@ class TransformersDecoder(nn.Module):
 
 class Transformers(nn.Module):
 
-    def __init__(self
-            # TODO
-        ):
+    def __init__(self,
+        encoder_depth: int,
+        decoder_depth: int,
+        enc_heads: int,
+        dec_heads: int,
+        d_q: int,
+        d_k: int
+    ) -> None:
 
-        super.__init__()
+        super().__init__()
 
         self.word2idx, self.embeddings = load_glove_embeddings()
         self.idx2word = {idx: word for word, idx in self.word2idx.items()}
@@ -207,7 +212,6 @@ class Transformers(nn.Module):
         
         self.linear = nn.Linear(self.d_model, self.d_model)
 
-    def forward(x):
+    def forward(self, x):
 
         pass
-
