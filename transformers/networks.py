@@ -9,7 +9,7 @@ class Attention(nn.Module):
 
     def __init__(self, 
             d_q: int,
-                 d_k: int, 
+            d_k: int, 
             d_model: int, 
             masked: bool = False
         ):
@@ -152,12 +152,13 @@ class TransformersDecoder(nn.Module):
 
     def __init__(self, num_heads: int, d_q: int, d_k: int, d_model):
 
-        super.__init__()
+        super().__init__()
 
         self.self_attention = MultiHeadAttention(
             num_heads=num_heads, 
             d_q=d_q, 
-            d_k=d_q, 
+            d_k=d_q,
+            d_model=d_model,
             masked=True
         )
         self.n1 = LayerNorm(d_model)
@@ -166,6 +167,7 @@ class TransformersDecoder(nn.Module):
             num_heads=num_heads,
             d_q=d_q,
             d_k=d_k,
+            d_model=d_model,
             masked=False
         )
         self.n2 = LayerNorm(d_model)
