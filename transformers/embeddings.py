@@ -3,6 +3,7 @@ import pandas as pd
 from collections import defaultdict
 from tqdm import tqdm
 from helper import is_english_or_french
+import heapq
 
 
 class Embeddings(nn.Module):
@@ -23,6 +24,7 @@ class Embeddings(nn.Module):
         self.projection = nn.Linear(d_model, vocab_size)
 
         df = pd.read_csv(dataset)
+        df = df.iloc[:1000000]
         data = defaultdict(int)
 
         for _, line in tqdm(df.iterrows(), total=len(df)):
@@ -31,14 +33,29 @@ class Embeddings(nn.Module):
         data = {char: n for char, n in data.items() if n >= 100}
         
         tokens = list(data.keys())
-        tokens = [token for token in tokens if is_english_or_french(token)]
+        tokens = [sorted([token for token in tokens if is_english_or_french(token)])]
+        max_token_length = 1
 
-        print(tokens)
+        while sum([len(i) for i in tokens]) < vocab_size - 1:
+            max_token_length += 1
+            data = defaultdict(int)
 
-        while len(tokens) < self.vocab_size:
-            keys = tokens + [left + right for left in tokens for right in tokens]
-            print(keys)
-            break
+            for _, line in tqdm(df.iterrows(), total=len(df)):
+                for i in range(len(str(line["en"])) - max_token_length):
+                    data[str(line["en"])[i:i + max_token_length]] += 1
+                for i in range(len(str(line["fr"])) - max_token_length):
+                    data[str(line["fr"])[i:i + max_token_length]] += 1
+                
+            data = {token: n for token, n in data.items() if n >= 100}
+
+            if len(data) + sum([len(i) for i in tokens]) > vocab_size - 1:
+                n = vocab_size - 1 - sum([len(i) for i in tokens]) 
+                data = [k for k, v in heapq.nlargest(n, data.items(), key=lambda item: item[1])]
+            else:
+                data = list(data.keys())
+
+            tokens.append(data)
+
 
     def encode(self, text: str):
 
