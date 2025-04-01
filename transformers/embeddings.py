@@ -13,8 +13,12 @@ class Embeddings(nn.Module):
             d_model: int,                                     # unchangable
             vocab_size: int,                                  # can be changed with an internal funcion
             dataset: str,                                     # path to the dataset, makes sense only if vocab_size is defined
-            min_token_occurrence: float = 1e-4                 # min number of average occurances of the token in the dataset per line
-            ) -> None:
+            min_token_occurrence: float = 1e-4,               # min number of average occurances of the token in the dataset per line
+            verbose: int = 1                                  # value of 0 or 1 representing whether info is printed    
+        ) -> None:
+
+        if verbose not in [0, 1]:
+            raise Exception("Verbose must be equal to `0` or `1`!")
 
         super().__init__()
         self.d_model = d_model
@@ -23,18 +27,25 @@ class Embeddings(nn.Module):
         self.token_to_id = None
         self.embeddings = None
         self.projection = nn.Linear(d_model, vocab_size)
-
+        
+        if verbose:
+            print("Loading data...")
         df = pd.read_csv(dataset)
-        df = df.iloc[:1000000]
+        if verbose:
+            print("Data is loaded successfully.")
         min_samples = int(min_token_occurrence * len(df))
         data = defaultdict(int)
 
-        for _, line in tqdm(df.iterrows(), total=len(df)):
+        if verbose:
+            print("Initiating tokens")
+        for _, line in tqdm(df.iterrows(), total=len(df), disable=not bool(verbose)):
             for char in (str(line["en"]) + str(line["fr"])):
                 data[char] += 1
         data = {char: n for char, n in data.items() if n >= min_samples}
         
         tokens = list(data.keys())
+        if verbose:
+            print(f"Created {len(tokens)} char tokens in total")
         tokens = [sorted([token for token in tokens if is_english_or_french(token)])]
         max_token_length = 1
 
@@ -42,7 +53,7 @@ class Embeddings(nn.Module):
             max_token_length += 1
             data = defaultdict(int)
 
-            for _, line in tqdm(df.iterrows(), total=len(df)):
+            for _, line in tqdm(df.iterrows(), total=len(df), disable=not bool(verbose)):
                 for i in range(len(str(line["en"])) - max_token_length):
                     data[str(line["en"])[i:i + max_token_length]] += 1
                 for i in range(len(str(line["fr"])) - max_token_length):
@@ -57,6 +68,9 @@ class Embeddings(nn.Module):
                 data = list(data.keys())
 
             tokens.append(data)
+
+            if verbose:
+                print(f"Total token count: {sum([len(i) for i in tokens])}")
 
 
     def encode(self, text: str):
