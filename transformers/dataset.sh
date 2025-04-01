@@ -1,6 +1,5 @@
 #!/bin/bash
 
-url="https://huggingface.co/datasets/FrancophonIA/English-French/blob/main/train.csv"
-
-wget -O dataset.csv "$url"
+huggingface-cli download FrancophonIA/french-to-english french-to-english-dataset.csv --local-dir .
+mv french-to-english-dataset.csv dataset.csv
 
