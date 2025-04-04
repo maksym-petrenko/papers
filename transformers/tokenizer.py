@@ -2,7 +2,9 @@ import pandas as pd
 from collections import defaultdict
 from tqdm import tqdm
 import heapq
-
+import concurrent.futures
+from collections import Counter
+from functools import partial
 
 
 def is_english_or_french(char: str) -> bool:
@@ -12,12 +14,46 @@ def is_english_or_french(char: str) -> bool:
         (0x00A0 <= code <= 0x00FF)
     )
 
+
+def process_chunk(
+        dataset: str, 
+        start_row: int,
+        finish_row: int,
+        token_length: int
+    ) -> dict:
+
+    df = pd.read_csv(
+        dataset, 
+        skiprows=start_row,
+        nrows=finish_row - start_row
+    )
+
+    local_data = Counter()
+
+    for _, line in df.iterrows():
+        en_data = str(line["en"])
+        fr_data = str(line["fr"])
+
+        words = en_data.split() + fr_data.split()
+
+        for word in words:
+            for i in range(len(word) - token_length):
+                local_data[word[i:(i + token_length)]] += 1
+
+    return local_data 
+
+
 def tokenize(
         vocab_size: int, 
         dataset: str,
         min_token_occurrence: float = 1e-4,
+        num_workers: int | None = None,
         verbose: int = 1
     ) -> list:
+
+    if num_workers is None:
+        import multiprocessing
+        num_workers = multiprocessing.cpu_count()
 
     if verbose:
         print("Loading data...")
@@ -40,7 +76,7 @@ def tokenize(
     tokens = [sorted([token for token in tokens if is_english_or_french(token)])]
     max_token_length = 1
 
-    while sum([len(i) for i in tokens]) < vocab_size - 1:
+    while sum([len(i) for i in tokens]) < vocab_size - 2:
         max_token_length += 1
         data = defaultdict(int)
 
