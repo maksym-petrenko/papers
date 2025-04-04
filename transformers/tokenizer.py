@@ -5,6 +5,8 @@ import heapq
 import concurrent.futures
 from collections import Counter
 from functools import partial
+import platform
+import subprocess
 
 
 def is_english_or_french(char: str) -> bool:
@@ -55,20 +57,38 @@ def tokenize(
         import multiprocessing
         num_workers = multiprocessing.cpu_count()
 
-    if verbose:
-        print("Loading data...")
-    df = pd.read_csv(dataset)
-    if verbose:
-        print("Data is loaded successfully.")
-    min_samples = int(min_token_occurrence * len(df))
-    data = defaultdict(int)
+    data = Counter()
+    if platform.system() == "Windows":
+        pass
+    result = subprocess.run(
+        ['wc', '-l', dataset],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    output_line = result.stdout.strip()
+    chunk_size = int(output_line.split()[0])
+    token_length = 1
 
-    if verbose:
-        print("Initiating tokens")
-    for _, line in tqdm(df.iterrows(), total=len(df), disable=not bool(verbose)):
-        for char in (str(line["en"]) + str(line["fr"])):
-            data[char] += 1
-    data = {char: n for char, n in data.items() if n >= min_samples}
+    process_func = partial(process_chunk, dataset=dataset)
+ 
+
+    while len(data) < vocab_size - 2:
+
+        futures = []
+        for i in range(num_workers):
+            start_row = i * chunk_size
+            finish_row = (i + 1) * chunk_size if i < num_workers - 1 else total_rows
+            futures.append(executor.submit(process_chunk, dataset_path, start_row, finish_row, token_length))
+        
+        # Collect results as they complete
+        for future in concurrent.futures.as_completed(futures):
+            data.update(future.result())
+   
+
+
+
+
     
     tokens = list(data.keys())
     if verbose:
