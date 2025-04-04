@@ -28,50 +28,6 @@ class Embeddings(nn.Module):
         self.embeddings = None
         self.projection = nn.Linear(d_model, vocab_size)
         
-        if verbose:
-            print("Loading data...")
-        df = pd.read_csv(dataset)
-        if verbose:
-            print("Data is loaded successfully.")
-        min_samples = int(min_token_occurrence * len(df))
-        data = defaultdict(int)
-
-        if verbose:
-            print("Initiating tokens")
-        for _, line in tqdm(df.iterrows(), total=len(df), disable=not bool(verbose)):
-            for char in (str(line["en"]) + str(line["fr"])):
-                data[char] += 1
-        data = {char: n for char, n in data.items() if n >= min_samples}
-        
-        tokens = list(data.keys())
-        if verbose:
-            print(f"Created {len(tokens)} char tokens in total")
-        tokens = [sorted([token for token in tokens if is_english_or_french(token)])]
-        max_token_length = 1
-
-        while sum([len(i) for i in tokens]) < vocab_size - 1:
-            max_token_length += 1
-            data = defaultdict(int)
-
-            for _, line in tqdm(df.iterrows(), total=len(df), disable=not bool(verbose)):
-                for i in range(len(str(line["en"])) - max_token_length):
-                    data[str(line["en"])[i:i + max_token_length]] += 1
-                for i in range(len(str(line["fr"])) - max_token_length):
-                    data[str(line["fr"])[i:i + max_token_length]] += 1
-                
-            data = {token: n for token, n in data.items() if n >= min_samples}
-
-            if len(data) + sum([len(i) for i in tokens]) > vocab_size - 1:
-                n = vocab_size - 1 - sum([len(i) for i in tokens]) 
-                data = [k for k, _ in heapq.nlargest(n, data.items(), key=lambda item: item[1])]
-            else:
-                data = list(data.keys())
-
-            tokens.append(data)
-
-            if verbose:
-                print(f"Total token count: {sum([len(i) for i in tokens])}")
-
 
     def encode(self, text: str):
 

@@ -19,9 +19,3 @@ def positional_encoding(length: int, d_model: int):
     return result.reshape((d_model, 2, length)).flatten(start_dim=1)
 
 
-def is_english_or_french(char: str) -> bool:
-    code = ord(char)
-    return (
-        (0x0020 <= code <= 0x007E) or
-        (0x00A0 <= code <= 0x00FF)
-    )
