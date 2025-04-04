@@ -6,6 +6,6 @@ channels:
 dependencies:
   - python >= 3.11.*
   - pytorch
-  - numpy
-  - pandas
-  - huggingface_hub
+  - pip:
+    - -r requirements.txt
+
