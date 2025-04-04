@@ -1,20 +1,24 @@
 import pandas as pd
 from collections import defaultdict
+from pandas.core.arrays.timedeltas import truediv_object_array
 from tqdm import tqdm
 import heapq
 import concurrent.futures
 from collections import Counter
-from functools import partial
 import platform
 import subprocess
 
 
-def is_english_or_french(char: str) -> bool:
-    code = ord(char)
-    return (
-        (0x0020 <= code <= 0x007E) or
-        (0x00A0 <= code <= 0x00FF)
-    )
+def is_english_or_french(line: str) -> bool:
+    flag = True 
+    for char in line:
+        code = ord(char)
+        if not (
+            (0x0020 <= code <= 0x007E) or
+            (0x00A0 <= code <= 0x00FF)
+        ):
+            return False
+    return True
 
 
 def process_chunk(
@@ -42,6 +46,8 @@ def process_chunk(
             for i in range(len(word) - token_length):
                 local_data[word[i:(i + token_length)]] += 1
 
+    local_data = {token: count for token, count in data.items() if is_english_or_french(token)}
+
     return local_data 
 
 
@@ -49,21 +55,20 @@ def tokenize(
         vocab_size: int, 
         dataset: str,
         min_token_occurrence: float = 1e-4,
-        num_workers: int | None = None,
+        num_workers: int = 0,
         verbose: int = 1
     ) -> list:
 
-    if num_workers is None:
+    if num_workers == 0:
         import multiprocessing
         num_workers = multiprocessing.cpu_count()
 
     data = Counter()
     if platform.system() == "Windows":
         lines = 0
-        with open(filename, 'r', encoding='utf-8') as f:
-            for line in f:
+        with open(dataset, 'r', encoding='utf-8') as f:
+            for _ in f:
                 lines += 1
-        chunk_size = lines // num_workers
     else:
         result = subprocess.run(
             ['wc', '-l', dataset],
@@ -72,59 +77,28 @@ def tokenize(
             check=True
         )
         output_line = result.stdout.strip()
-        chunk_size = int(output_line.split()[0]) // num_workers
+        lines = int(output_line.split()[0])
 
+    min_samples = int(lines * min_token_occurrence)
+    chunk_size = lines // num_workers
     token_length = 1
-    process_func = partial(process_chunk, dataset=dataset)
- 
 
     while len(data) < vocab_size - 2:
 
-        futures = []
-        for i in range(num_workers):
-            start_row = i * chunk_size
-            finish_row = (i + 1) * chunk_size if i < num_workers - 1 else total_rows
-            futures.append(executor.submit(process_chunk, dataset_path, start_row, finish_row, token_length))
-        
-        # Collect results as they complete
-        for future in concurrent.futures.as_completed(futures):
-            data.update(future.result())
-   
-
-
-
-
-    
-    tokens = list(data.keys())
-    if verbose:
-        print(f"Created {len(tokens)} char tokens in total")
-    tokens = [sorted([token for token in tokens if is_english_or_french(token)])]
-    max_token_length = 1
-
-    while sum([len(i) for i in tokens]) < vocab_size - 2:
-        max_token_length += 1
-        data = defaultdict(int)
-
-        for _, line in tqdm(df.iterrows(), total=len(df), disable=not bool(verbose)):
-            en_text = str(line["en"])
-            fr_text = str(line["fr"])
-            for i in range(len(str(en_text)) - max_token_length):
-                data[str(en_text)[i:i + max_token_length]] += 1
-            for i in range(len(str(fr_text)) - max_token_length):
-                data[str(fr_text)[i:i + max_token_length]] += 1
+        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = []
+            for i in range(num_workers):
+                start_row = i * chunk_size
+                finish_row = (i + 1) * chunk_size if i < num_workers - 1 else lines
+                futures.append(executor.submit(process_chunk, dataset, start_row, finish_row, token_length))
             
-        data = {token: n for token, n in data.items() if n >= min_samples}
+            for future in concurrent.futures.as_completed(futures):
+                data.update(future.result())
 
-        if len(data) + sum([len(i) for i in tokens]) > vocab_size - 1:
-            n = vocab_size - 1 - sum([len(i) for i in tokens]) 
-            data = [k for k, _ in heapq.nlargest(n, data.items(), key=lambda item: item[1])]
-        else:
-            data = list(data.keys())
+            data = {token: count for token, count in data.items() if count >= min_samples}
 
-        tokens.append(data)
-
-        if verbose:
-            print(f"Total token count: {sum([len(i) for i in tokens])}")
+    data = heapq.nlargest(vocab_size, data.items(), key=lambda item: item[1])
+    tokens = [" ", "undefined"] + list(data.keys())
 
     return tokens
 
