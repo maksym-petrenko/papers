@@ -18,19 +18,24 @@ def is_english_or_french(line: str) -> bool:
     return True
 
 
-def process_chunk(
+def load_chunk(
         dataset: str, 
         start_row: int,
-        finish_row: int,
-        token_length: int
-    ) -> dict:
-
-    df = pd.read_csv(
+        finish_row: int
+    ) -> pd.DataFrame:
+    
+    return pd.read_csv(
         dataset, 
         skiprows=start_row,
         nrows=finish_row - start_row,
         names=["en", "fr"]
     )
+
+def process_chunk(
+        df: pd.DataFrame,
+        token_length: int
+    ) -> dict:
+
     local_data = Counter()
 
     for _, line in df.iterrows():
@@ -80,16 +85,23 @@ def tokenize(
     token_length = 1
     data = dict()
 
+    dfs = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+        futures = []
+        for i in range(num_workers):
+            start_row = i * chunk_size
+            finish_row = (i + 1) * chunk_size if i < num_workers - 1 else lines
+            futures.append(executor.submit(load_chunk, dataset, start_row, finish_row))
+        
+        for future in concurrent.futures.as_completed(futures):
+            dfs.append(future.result())
+
     while len(data) < vocab_size - 2:
-
         start_time = time.time()
-
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = []
             for i in range(num_workers):
-                start_row = i * chunk_size
-                finish_row = (i + 1) * chunk_size if i < num_workers - 1 else lines
-                futures.append(executor.submit(process_chunk, dataset, start_row, finish_row, token_length))
+                futures.append(executor.submit(process_chunk, dfs[i], token_length))
             
             for future in concurrent.futures.as_completed(futures):
                 data.update(future.result())
