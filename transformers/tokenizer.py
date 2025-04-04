@@ -59,17 +59,22 @@ def tokenize(
 
     data = Counter()
     if platform.system() == "Windows":
-        pass
-    result = subprocess.run(
-        ['wc', '-l', dataset],
-        capture_output=True,
-        text=True,
-        check=True
-    )
-    output_line = result.stdout.strip()
-    chunk_size = int(output_line.split()[0])
-    token_length = 1
+        lines = 0
+        with open(filename, 'r', encoding='utf-8') as f:
+            for line in f:
+                lines += 1
+        chunk_size = lines // num_workers
+    else:
+        result = subprocess.run(
+            ['wc', '-l', dataset],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        output_line = result.stdout.strip()
+        chunk_size = int(output_line.split()[0]) // num_workers
 
+    token_length = 1
     process_func = partial(process_chunk, dataset=dataset)
  
 
