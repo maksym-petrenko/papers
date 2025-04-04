@@ -1,16 +1,13 @@
 import pandas as pd
-from collections import defaultdict
-from pandas.core.arrays.timedeltas import truediv_object_array
-from tqdm import tqdm
 import heapq
 import concurrent.futures
 from collections import Counter
 import platform
 import subprocess
+import time
 
 
 def is_english_or_french(line: str) -> bool:
-    flag = True 
     for char in line:
         code = ord(char)
         if not (
@@ -31,9 +28,9 @@ def process_chunk(
     df = pd.read_csv(
         dataset, 
         skiprows=start_row,
-        nrows=finish_row - start_row
+        nrows=finish_row - start_row,
+        names=["en", "fr"]
     )
-
     local_data = Counter()
 
     for _, line in df.iterrows():
@@ -44,9 +41,9 @@ def process_chunk(
 
         for word in words:
             for i in range(len(word) - token_length):
-                local_data[word[i:(i + token_length)]] += 1
+                local_data[word[min(i, 1):(i + token_length)]] += 1
 
-    local_data = {token: count for token, count in data.items() if is_english_or_french(token)}
+    local_data = {token: count for token, count in local_data.items() if is_english_or_french(token)}
 
     return local_data 
 
@@ -63,7 +60,6 @@ def tokenize(
         import multiprocessing
         num_workers = multiprocessing.cpu_count()
 
-    data = Counter()
     if platform.system() == "Windows":
         lines = 0
         with open(dataset, 'r', encoding='utf-8') as f:
@@ -82,8 +78,11 @@ def tokenize(
     min_samples = int(lines * min_token_occurrence)
     chunk_size = lines // num_workers
     token_length = 1
+    data = dict()
 
     while len(data) < vocab_size - 2:
+
+        start_time = time.time()
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = []
@@ -95,7 +94,11 @@ def tokenize(
             for future in concurrent.futures.as_completed(futures):
                 data.update(future.result())
 
-            data = {token: count for token, count in data.items() if count >= min_samples}
+        data = {token: count for token, count in data.items() if count >= min_samples}
+            
+        end_time = time.time()
+        print(end_time - start_time)
+        token_length += 1
 
     data = heapq.nlargest(vocab_size, data.items(), key=lambda item: item[1])
     tokens = [" ", "undefined"] + list(data.keys())
