@@ -1,5 +1,5 @@
 from torch import nn 
-from tokenizer import tokenize
+from tokenizer import tokenize, read_tokens
 
 
 class Embeddings(nn.Module):
@@ -23,7 +23,7 @@ class Embeddings(nn.Module):
 
 
         if saved_tokens_path is not None:
-            pass
+            tokens = read_tokens(saved_tokens_path)
         else:
             tokens = tokenize(
                 vocab_size=vocab_size, 
