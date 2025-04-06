@@ -117,3 +117,22 @@ def tokenize(
 
     return tokens
 
+
+if __name__ == "__main__":
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-p", "--path", help="path to save the tokens to", type=str)
+    parser.add_argument("-d", "--dataset", help="path to the dataset", type=str)
+
+    path = parser.parse_args().path
+    dataset_path = parser.parse_args().dataset
+
+    if path is None:
+        path = "tokens.txt"
+
+    if dataset_path is None:
+        raise Exception("dataset_path `-d` must be specified")
+
