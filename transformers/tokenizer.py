@@ -19,13 +19,13 @@ def is_english_or_french(line: str) -> bool:
 
 
 def load_chunk(
-        dataset: str, 
+        dataset_path: str, 
         start_row: int,
         finish_row: int
     ) -> pd.DataFrame:
     
     return pd.read_csv(
-        dataset, 
+        dataset_path, 
         skiprows=start_row,
         nrows=finish_row - start_row,
         names=["en", "fr"]
@@ -55,7 +55,7 @@ def process_chunk(
 
 def tokenize(
         vocab_size: int, 
-        dataset: str,
+        dataset_path: str,
         min_token_occurrence: float = 1e-4,
         num_workers: int = 0,
         verbose: int = 1
@@ -67,12 +67,12 @@ def tokenize(
 
     if platform.system() == "Windows":
         lines = 0
-        with open(dataset, 'r', encoding='utf-8') as f:
+        with open(dataset_path, 'r', encoding='utf-8') as f:
             for _ in f:
                 lines += 1
     else:
         result = subprocess.run(
-            ['wc', '-l', dataset],
+            ['wc', '-l', dataset_path],
             capture_output=True,
             text=True,
             check=True
@@ -91,7 +91,7 @@ def tokenize(
         for i in range(num_workers):
             start_row = i * chunk_size
             finish_row = (i + 1) * chunk_size if i < num_workers - 1 else lines
-            futures.append(executor.submit(load_chunk, dataset, start_row, finish_row))
+            futures.append(executor.submit(load_chunk, dataset_path, start_row, finish_row))
         
         for future in concurrent.futures.as_completed(futures):
             dfs.append(future.result())

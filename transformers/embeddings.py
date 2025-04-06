@@ -9,7 +9,7 @@ class Embeddings(nn.Module):
             d_model: int,                                     # unchangable
             vocab_size: int,                                  # can be changed with an internal funcion
             saved_tokens_path: str | None = None,             # file with saved tokenization
-            dataset: str | None = None,                       # path to the dataset, makes sense only if vocab_size is defined
+            dataset_path: str | None = None,                  # path to the dataset, makes sense only if vocab_size is defined
             min_token_occurrence: float | None = None,        # min number of average occurances of the token in the dataset per line
             verbose: int = 1                                  # value of 0 or 1 representing whether info is printed    
         ) -> None:
@@ -21,12 +21,20 @@ class Embeddings(nn.Module):
         self.d_model = d_model
         self.vocab_size = vocab_size
 
-        self.projection = nn.Linear(d_model, vocab_size)
-        
+
         if saved_tokens_path is not None:
             pass
         else:
-            pass
+            tokens = tokenize(
+                vocab_size=vocab_size, 
+                dataset_path=dataset_path, 
+                min_token_occurrence=min_token_occurrence, 
+                verbose=verbose
+            )
+        
+        self.tokens = {tokens[i] : i for i in range(len(tokens))}
+        self.embeddings = nn.Embedding(vocab_size, d_model)
+        self.projection = nn.Linear(d_model, vocab_size)
 
     def encode(self, text: str):
 
