@@ -118,6 +118,19 @@ def tokenize(
     return tokens
 
 
+def write_tokens(tokens: list[str], path: str) -> None:
+
+    with open(path, "w", encoding="utf-8") as f:
+        for token in tokens:
+            f.write(f"{token}\n")
+
+
+def read_tokens(path: str) -> list[str]:
+
+    with open(path, "r", encoding="utf-8") as f:
+        return [line.strip() for line in f.readlines()]
+
+
 if __name__ == "__main__":
 
     import argparse
@@ -126,13 +139,25 @@ if __name__ == "__main__":
 
     parser.add_argument("-p", "--path", help="path to save the tokens to", type=str)
     parser.add_argument("-d", "--dataset", help="path to the dataset", type=str)
+    parser.add_argument("-vocab", "--vocab", help="vocabulary size", type=int)
+    parser.add_argument("-d_model", "--d_model", help="embeddings size", type=int)
+    parser.add_argument("-min_occurrence", "--min_occurrence", help="self explanatory", type=float)
+  
+    args = parser.parse_args()
 
-    path = parser.parse_args().path
-    dataset_path = parser.parse_args().dataset
+    path = args.path
+    dataset_path = args.dataset
 
     if path is None:
         path = "tokens.txt"
 
-    if dataset_path is None:
-        raise Exception("dataset_path `-d` must be specified")
+    tokens = tokenize(
+        vocab_size=args.vocab,
+        dataset_path=dataset_path,
+        min_token_occurrence=args.min_occurence,
+    )
+
+    write_tokens(tokens, path)
+
+
 
