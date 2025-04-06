@@ -44,11 +44,3 @@ class Embeddings(nn.Module):
 
         pass
 
-
-    def extend_vocabulary(self, new_tokens):
-
-        pass
-
-    def reduce_vocabulary(self, del_tokens):
-
-        pass
