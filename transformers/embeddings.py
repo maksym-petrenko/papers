@@ -1,9 +1,5 @@
 from torch import nn 
-import pandas as pd
-from collections import defaultdict
-from tqdm import tqdm
-from helper import is_english_or_french
-import heapq
+from tokenizer import tokenize
 
 
 class Embeddings(nn.Module):
@@ -12,8 +8,9 @@ class Embeddings(nn.Module):
             self,
             d_model: int,                                     # unchangable
             vocab_size: int,                                  # can be changed with an internal funcion
-            dataset: str,                                     # path to the dataset, makes sense only if vocab_size is defined
-            min_token_occurrence: float = 1e-4,               # min number of average occurances of the token in the dataset per line
+            saved_tokens_path: str | None = None,             # file with saved tokenization
+            dataset: str | None = None,                       # path to the dataset, makes sense only if vocab_size is defined
+            min_token_occurrence: float | None = None,        # min number of average occurances of the token in the dataset per line
             verbose: int = 1                                  # value of 0 or 1 representing whether info is printed    
         ) -> None:
 
@@ -24,10 +21,12 @@ class Embeddings(nn.Module):
         self.d_model = d_model
         self.vocab_size = vocab_size
 
-        self.token_to_id = None
-        self.embeddings = None
         self.projection = nn.Linear(d_model, vocab_size)
         
+        if saved_tokens_path is not None:
+            pass
+        else:
+            pass
 
     def encode(self, text: str):
 
