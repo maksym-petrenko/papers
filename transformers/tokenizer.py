@@ -96,7 +96,7 @@ def tokenize(
         for future in concurrent.futures.as_completed(futures):
             dfs.append(future.result())
 
-    while len(data) < vocab_size - 2:
+    while len(data) < vocab_size - 4:
         start_time = time.time()
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = []
@@ -113,7 +113,7 @@ def tokenize(
         token_length += 1
 
     data = heapq.nlargest(vocab_size, data.items(), key=lambda item: item[1])
-    tokens = [" ", "undefined"] + list(data.keys())
+    tokens = [" ", "<UNK>", "<EOS>", "<PAD>"] + list(data.keys())
 
     return tokens
 
