@@ -1,17 +1,56 @@
-from torch import nn 
+from torch import nn
 from tokenizer import tokenize, read_tokens
+
+
+class TrieNode:
+
+    def __init__(self, token, index):
+
+        self.token = token
+        self.index = index
+        self.children = dict()
+
+    def find_child(self, char):
+        
+        return self.children.get(char)
+    
+    def find_best_match(self, string):
+
+        previous_node = self
+        node = self
+
+        for char in string:
+            previous_node = node
+            node = self.find_child(char)
+            if node is None: 
+                return previous_node
+        
+        return node
+    
+    def add_token(self, token, index):
+
+        best = self.find_best_match(token)
+        to_add = token[len(best.token):] 
+
+        if to_add == best.token:
+            best.index = index
+            return None
+
+        for char in to_add:
+            idx = index if to_add == token else None
+            best.children[char] = TrieNode(to_add + char, index)
 
 
 class Embeddings(nn.Module):
 
     def __init__(
             self,
-            d_model: int,                                     # unchangable
+            d_model: int,                                     # unchangeble
             vocab_size: int,                                  # can be changed with an internal funcion
+            dataset_path: str,                                # path to the dataset, makes sense only if vocab_size is defined
             saved_tokens_path: str | None = None,             # file with saved tokenization
-            dataset_path: str | None = None,                  # path to the dataset, makes sense only if vocab_size is defined
-            min_token_occurrence: float | None = None,        # min number of average occurances of the token in the dataset per line
-            verbose: int = 1                                  # value of 0 or 1 representing whether info is printed    
+            min_token_occurrence: float = 1e-6,               # min number of average occurances of the token in the dataset per line
+            verbose: int = 1                                  # value of 0 or 1 representing whether info is printed
         ) -> None:
 
         if verbose not in [0, 1]:
@@ -26,21 +65,19 @@ class Embeddings(nn.Module):
             tokens = read_tokens(saved_tokens_path)
         else:
             tokens = tokenize(
-                vocab_size=vocab_size, 
-                dataset_path=dataset_path, 
-                min_token_occurrence=min_token_occurrence, 
+                vocab_size=vocab_size,
+                dataset_path=dataset_path,
+                min_token_occurrence=min_token_occurrence,
                 verbose=verbose
             )
-        
+
         self.tokens = {tokens[i] : i for i in range(len(tokens))}
         self.embeddings = nn.Embedding(vocab_size, d_model)
         self.projection = nn.Linear(d_model, vocab_size)
 
-    def encode(self, text: str):
+    def encode(self, text: str):        
 
-        pass
-    
+
     def decode(self, vect) -> str:
 
         pass
-
