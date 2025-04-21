@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from tokenizer import tokenize, read_tokens
 
@@ -38,7 +39,7 @@ class TrieNode:
 
         for char in to_add:
             idx = index if to_add == token else None
-            best.children[char] = TrieNode(to_add + char, index)
+            best.children[char] = TrieNode(to_add + char, idx)
 
 
 class Embeddings(nn.Module):
@@ -71,12 +72,28 @@ class Embeddings(nn.Module):
                 verbose=verbose
             )
 
-        self.tokens = {tokens[i] : i for i in range(len(tokens))}
+        self.tokens = TrieNode("", None)
+        self.token_to_id = dict()
+        for i in range(len(tokens)):
+            self.tokens.add_token(tokens[i], i)
+            self.token_to_id[tokens[i]] = i
         self.embeddings = nn.Embedding(vocab_size, d_model)
         self.projection = nn.Linear(d_model, vocab_size)
 
-    def encode(self, text: str):        
+    def encode(self, text: str, window: int):
 
+        result = torch.zeros(window, self.d_model)
+        i = 0
+
+        while text:
+            best = self.tokens.find_best_match(text)
+            if best is self.tokens:
+                result = self.embeddings[1]
+            else:
+                result[i] = self.embeddings[best.index]
+        result[i + 1] = self.embeddings[2]
+
+        return result
 
     def decode(self, vect) -> str:
 
