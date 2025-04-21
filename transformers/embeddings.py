@@ -100,18 +100,11 @@ class Embeddings(nn.Module):
         proj = nn.Softmax(self.d_model)(proj)
 
         tokenids = [self.tokens[torch.argmax(vect[i])] for i in range(len(vect))]
-        index = len(tokens)
-        
-        for i in range(len(tokenids)):
-            if tokenids[i] == 2:
-                index = i
-                break
-        
-        for i in range(index, len(tokenids)):
-            tokenids[i] = 3
-
         text = ""
+
         for tokenid in tokenids:
+            if tokenid == 2:
+                break
             text += self.id_to_token[tokenid]
         
         return text
