@@ -73,10 +73,9 @@ class Embeddings(nn.Module):
             )
 
         self.tokens = TrieNode("", None)
-        self.token_to_id = dict()
+        self.id_to_token = tokens
         for i in range(len(tokens)):
             self.tokens.add_token(tokens[i], i)
-            self.token_to_id[tokens[i]] = i
         self.embeddings = nn.Embedding(vocab_size, d_model)
         self.projection = nn.Linear(d_model, vocab_size)
 
@@ -97,4 +96,23 @@ class Embeddings(nn.Module):
 
     def decode(self, vect) -> str:
 
-        pass
+        proj = self.projection(vect)
+        proj = nn.Softmax(self.d_model)(proj)
+
+        tokenids = [self.tokens[torch.argmax(vect[i])] for i in range(len(vect))]
+        index = len(tokens)
+        
+        for i in range(len(tokenids)):
+            if tokenids[i] == 2:
+                index = i
+                break
+        
+        for i in range(index, len(tokenids)):
+            tokenids[i] = 3
+
+        text = ""
+        for tokenid in tokenids:
+            text += self.id_to_token[tokenid]
+        
+        return text
+
