@@ -94,7 +94,6 @@ class Embeddings(nn.Module):
         i = 0
         
         for word in words:
-            print(word)
             while word:
                 if window is None:
                     result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
@@ -112,12 +111,12 @@ class Embeddings(nn.Module):
 
         return result
 
-    def decode(self, vect) -> str:
+    def decode(self, text) -> str:
 
-        proj = self.projection(vect)
-        proj = nn.Softmax(self.d_model)(proj)
+        proj = self.projection(text)
+        print(proj.size())
 
-        tokenids = [self.tokens[torch.argmax(vect[i])] for i in range(len(vect))]
+        tokenids = [torch.argmax(proj[i]) for i in range(len(text))]
         text = ""
 
         for tokenid in tokenids:
