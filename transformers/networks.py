@@ -1,7 +1,6 @@
 from torch import nn
 import torch
-import numpy as np 
-from embeddings import load_glove_embeddings
+from embeddings import Embeddings
 from helper import positional_encoding
 
 
@@ -24,9 +23,9 @@ class Attention(nn.Module):
             raise Exception("Only self attention supports masking")
         self.masked = masked
 
-        self.q = nn.Linear(d_model, d_model)
-        self.k = nn.Linear(d_model, d_model)
-        self.v = nn.Linear(d_model, d_model)
+        self.q = nn.Linear(d_model, d_model, bias=False)
+        self.k = nn.Linear(d_model, d_model, bias=False)
+        self.v = nn.Linear(d_model, d_model, bias=False)
 
 
     def forward(self, x, y=None):
@@ -38,7 +37,7 @@ class Attention(nn.Module):
         K = self.k(y)
         V = self.v(x)
         
-        K = torch.transpose(K, -2, -1)
+        K = K.transpose(-2, -1)
 
         scores = torch.matmul(Q, K)
         scores = scores / torch.sqrt(self.d_model)
@@ -197,30 +196,37 @@ class Transformers(nn.Module):
         enc_heads: int,
         dec_heads: int,
         d_q: int,
-        d_k: int
+        d_k: int,
+        d_model: int,
+        vocab_size: int,
+        tokens_path: str | None = None
     ) -> None:
 
         super().__init__()
 
-        self.word2idx, self.embeddings = load_glove_embeddings()
-        self.idx2word = {idx: word for word, idx in self.word2idx.items()}
-        self.vocab_size = len(self.word2idx)
-        self.d_model = self.embeddings.size(1)
+        self.d_model = d_model
+        self.vocab_size = vocab_size
 
-        self.input_embedding = nn.Embedding.from_pretrained(self.embeddings, freeze=True)
-        self.output_embedding = self.input_embedding
-        
+        if tokens_path is not None:
+            self.embeddings = Embeddings(
+                d_model=d_model,
+                vocab_size=vocab_size,
+                saved_tokens_path=tokens_path
+            )
+        else:
+            self.embeddings = None
+
         self.encoders = nn.ModuleList([TransformersEncoder(enc_heads, d_q, self.d_model) for _ in range(encoder_depth)])
         self.decoders = nn.ModuleList([TransformersDecoder(dec_heads, d_q, d_k, self.d_model) for _ in range(decoder_depth)])
         
         self.linear = nn.Linear(self.d_model, self.d_model)
 
     def forward(self, src, tgt):
-        src_embedded = self.input_embedding(src)
-        tgt_embedded = self.output_embedding(tgt)
+        src_embedded = self.embeddings.encode(src)
+        tgt_embedded = self.embeddings.encode(tgt)
         
-        src_pos = self.pos_encoding[:, :src_embedded.size(1)]
-        tgt_pos = self.pos_encoding[:, :tgt_embedded.size(1)]
+        src_pos = positional_encoding[:, :src_embedded.size(1)]
+        tgt_pos = positional_encoding[:, :tgt_embedded.size(1)]
         
         src_embedded = src_embedded + src_pos
         tgt_embedded = tgt_embedded + tgt_pos
@@ -237,34 +243,3 @@ class Transformers(nn.Module):
         
         return output
 
-    def generate(self, src, max_length: int = 100):
-        self.eval()
-        with torch.no_grad():
-            src_embedded = self.input_embedding(src)
-            src_pos = self.pos_encoding[:, :src_embedded.size(1)]
-            src_embedded = src_embedded + src_pos
-            
-            enc_output = src_embedded
-            for encoder in self.encoders:
-                enc_output = encoder(enc_output)
-            
-            tgt = torch.full((src.size(0), 1), self.word2idx['<start>'], device=src.device)
-            
-            for _ in range(max_length):
-                tgt_embedded = self.output_embedding(tgt)
-                tgt_pos = self.pos_encoding[:, :tgt_embedded.size(1)]
-                tgt_embedded = tgt_embedded + tgt_pos
-                
-                dec_output = tgt_embedded
-                for decoder in self.decoders:
-                    dec_output = decoder(dec_output, enc_output)
-                
-                output = self.linear(dec_output)
-                next_token = output[:, -1].argmax(dim=-1)
-                
-                if next_token.item() == self.word2idx['<end>']:
-                    break
-                    
-                tgt = torch.cat([tgt, next_token.unsqueeze(1)], dim=1)
-            
-            return tgt
