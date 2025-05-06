@@ -63,7 +63,7 @@ def tokenize(
 
     if num_workers == 0:
         import multiprocessing
-        num_workers = multiprocessing.cpu_count()
+        num_workers = multiprocessing.cpu_count() - 4
 
     if platform.system() == "Windows":
         lines = 0
@@ -97,7 +97,6 @@ def tokenize(
             dfs.append(future.result())
 
     while len(data) < vocab_size - 4:
-        start_time = time.time()
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = []
             for i in range(num_workers):
@@ -108,12 +107,10 @@ def tokenize(
 
         data = {token: count for token, count in data.items() if count >= min_samples}
             
-        end_time = time.time()
-        print(end_time - start_time)
         token_length += 1
 
     data = heapq.nlargest(vocab_size, data.items(), key=lambda item: item[1])
-    tokens = [" ", "<UNK>", "<EOS>", "<PAD>"] + list(data.keys())
+    tokens = [" ", "<UNK>", "<EOS>", "<PAD>"] + [token[0] for token in data]
 
     return tokens
 
@@ -154,7 +151,7 @@ if __name__ == "__main__":
     tokens = tokenize(
         vocab_size=args.vocab,
         dataset_path=dataset_path,
-        min_token_occurrence=args.min_occurence,
+        min_token_occurrence=args.min_occurrence,
     )
 
     write_tokens(tokens, path)
