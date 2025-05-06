@@ -7,26 +7,26 @@ from helper import positional_encoding
 class Attention(nn.Module):
 
     def __init__(self, 
-            d_q: int,
-            d_k: int, 
-            d_model: int, 
+            d_model: int,
+            d_head: int,
             masked: bool = False
         ):
 
         super().__init__()
         
-        self.d_q = d_q
-        self.d_k = d_k
-        self.d_model = d_model
+        if not (d_model / d_head).is_integer():
+            raise Exception("`d_model` must be divisible by `d_heads`!")
 
-        if masked and d_q != d_k:
-            raise Exception("Only self attention supports masking")
+        self.d_model = d_model
+        self.d_head = d_head
+        self.num_heads = d_model // d_head
         self.masked = masked
 
         self.q = nn.Linear(d_model, d_model, bias=False)
         self.k = nn.Linear(d_model, d_model, bias=False)
         self.v = nn.Linear(d_model, d_model, bias=False)
-
+        self.WO = nn.Linear(d_model, d_model, bias=False)
+    
 
     def forward(self, x, y=None):
 
