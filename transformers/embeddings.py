@@ -22,10 +22,11 @@ class TrieNode:
 
         for char in string:
             previous_node = node
-            node = self.find_child(char)
+            node = previous_node.find_child(char)
             if node is None: 
                 return previous_node
-        
+        if node is self:
+            return TrieNode('<UNK>', None)
         return node
     
     def add_token(self, token, index):
@@ -76,21 +77,38 @@ class Embeddings(nn.Module):
         self.id_to_token = tokens
         for i in range(len(tokens)):
             self.tokens.add_token(tokens[i], i)
-        self.embeddings = nn.Embedding(vocab_size, d_model)
+        self.embeddings = torch.rand(vocab_size, d_model)
         self.projection = nn.Linear(d_model, vocab_size)
 
-    def encode(self, text: str, window: int):
-
-        result = torch.zeros(window, self.d_model)
+    def encode(
+            self, 
+            text: str, 
+            window: int | None = None
+        ):
+        words = text.split()
+        
+        if window is not None:
+            result = torch.zeros(window, self.d_model)
+        else:
+            result = torch.zeros(1, self.d_model)
         i = 0
+        
+        for word in words:
+            print(word)
+            while word:
+                if window is None:
+                    result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
 
-        while text:
-            best = self.tokens.find_best_match(text)
-            if best is self.tokens:
-                result = self.embeddings[1]
-            else:
-                result[i] = self.embeddings[best.index]
-        result[i + 1] = self.embeddings[2]
+                best = self.tokens.find_best_match(word)
+                result[i] = self.embeddings[best.index if best.index is not None else 1]
+                
+                word = word[len(best.token):]
+                i += 1
+                if window is not None:
+                    if i >= window:
+                        break
+            if i == window:
+                result[i + 1] = self.embeddings[2]
 
         return result
 
