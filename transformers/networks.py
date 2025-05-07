@@ -134,37 +134,39 @@ class TransformersEncoder(nn.Module):
 
 class TransformersDecoder(nn.Module):
 
-    def __init__(self, num_heads: int, d_q: int, d_k: int, d_model):
+    def __init__(self, 
+            num_heads: int, 
+            d_model: int
+        ):
 
         super().__init__()
 
         self.self_attention = MultiHeadAttention(
-            num_heads=num_heads, 
-            d_q=d_q, 
-            d_k=d_q,
-            d_model=d_model,
+            num_heads, 
+            d_model,
             masked=True
         )
         self.n1 = LayerNorm(d_model)
 
         self.cross_attention = MultiHeadAttention(
-            num_heads=num_heads,
-            d_q=d_q,
-            d_k=d_k,
-            d_model=d_model,
+            num_heads,
+            d_model,
             masked=False
         )
         self.n2 = LayerNorm(d_model)
-        
-        self.ffn = nn.Linear(d_model, d_model)
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, 4 * d_model),
+            nn.ReLU(),
+            nn.Linear(4 * d_model, d_model)
+        )
         self.n3 = LayerNorm(d_model)
 
     def forward(self, x, y):
 
-        x = x + self.self_attention(x)
+        x = x + self.self_attention(x, x, x)
         x = self.n1(x)
         
-        x = x + self.cross_attention(x, y)
+        x = x + self.cross_attention(x, y, y)
         x = self.n2(x)
 
         x = x + self.ffn(x)
