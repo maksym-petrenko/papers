@@ -213,8 +213,8 @@ class Transformers(nn.Module):
         src_embedded = self.embeddings.encode(src)
         tgt_embedded = self.embeddings.encode(tgt)
         
-        src_pos = positional_encoding[:, :src_embedded.size(1)].to(device=src.device)
-        tgt_pos = positional_encoding[:, :tgt_embedded.size(1)].to(device=src.device)
+        src_pos = positional_encoding(src_embedded.size(1), self.d_model).to(device=src.device)
+        tgt_pos = positional_encoding(tgt_embedded.size(1), self.d_model).to(device=src.device)
         
         src_embedded = src_embedded + src_pos
         tgt_embedded = tgt_embedded + tgt_pos
