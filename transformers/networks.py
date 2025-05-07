@@ -1,5 +1,5 @@
-from torch import nn
 import torch
+from torch import nn
 from embeddings import Embeddings
 from helper import positional_encoding
 
@@ -19,37 +19,32 @@ class Attention(nn.Module):
 
         self.d_model = d_model
         self.d_head = d_head
-        self.num_heads = d_model // d_head
         self.masked = masked
 
-        self.q = nn.Linear(d_model, d_model, bias=False)
-        self.k = nn.Linear(d_model, d_model, bias=False)
-        self.v = nn.Linear(d_model, d_model, bias=False)
-        self.WO = nn.Linear(d_model, d_model, bias=False)
-    
+        self.q = nn.Linear(d_model, d_head, bias=False)
+        self.k = nn.Linear(d_model, d_head, bias=False)
+        self.v = nn.Linear(d_model, d_head, bias=False)
 
-    def forward(self, x, y=None):
+    def forward(self, q, k, v):
 
-        if y is None:
-            y = x
-        
-        Q = self.q(x)
-        K = self.k(y)
-        V = self.v(x)
+        Q = self.q(q)
+        K = self.k(k)
+        V = self.v(v)
         
         K = K.transpose(-2, -1)
 
         scores = torch.matmul(Q, K)
-        scores = scores / torch.sqrt(self.d_model)
-        
+        scores = scores / (self.d_head ** 0.5)
+
+        size = Q.size[1]
+
         if self.masked:
-            mask = torch.tril(self.k, self.k).bool().to(x.device)
-            scores = masked_fill(mask, float("-inf"))
+            mask = torch.triu(torch.ones(size, size), diagonal=1).bool().to(q.device)
+            scores = scores.masked_fill(mask, float("-inf"))
 
-        scores = nn.Softmax(scores, dim=2)
+        scores = torch.softmax(scores, dim=2)
 
-        x = torch.matmul(scores, V)
-        return x
+        return torch.matmul(scores, V)
 
 
 class MultiHeadAttention(nn.Module):
