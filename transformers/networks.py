@@ -51,8 +51,6 @@ class MultiHeadAttention(nn.Module):
 
     def __init__(self, 
             num_heads: int, 
-            d_q: int, 
-            d_k: int,
             d_model: int, 
             masked: bool = False
         ):
@@ -60,31 +58,22 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         
         self.num_heads = num_heads  
-        self.d_k = d_k
-        self.d_q = d_q
         self.d_model = d_model
         
         if d_model % num_heads:
             raise Exception("`d_model` must be divisible by `num_heads`!")
-
-        self.d_heads = d_model / num_heads
         
-        self.heads = nn.ModuleList([Attention(d_q, d_k, self.d_heads, masked) for _ in range(num_heads)])
-        self.WO = nn.Linear(d_model, d_model)
-
-    def forward(self, x, y=None):
-
-        if y is None:
-            x = y
-
-        chunks = torch.split(x, self.d_heads, dim=-1)
-        head_chunks = [head(chunk, y) for head, chunk in zip(self.num_heads, chunks)]
+        self.d_head = d_model // num_heads
         
+        self.heads = nn.ModuleList([Attention(d_model, d_head, masked) for _ in range(num_heads)])
+        self.proj = nn.Linear(d_model, d_model)
+
+    def forward(self, q, k, v):
+
+        head_chunks = [head(q, k, v) for head in self.heads]
         concatenated = torch.cat(head_chunks, dim=-1)
 
-        x = self.WO(concatenated)
-
-        return x
+        return self.proj(concatenated)
 
 
 class LayerNorm(nn.Module):
