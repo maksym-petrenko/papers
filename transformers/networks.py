@@ -101,28 +101,29 @@ class TransformersEncoder(nn.Module):
 
     def __init__(self, 
             num_heads: int, 
-            d_q: int,
             d_model: int, 
         ):
 
         super().__init__()
         
         self.mh_attention = MultiHeadAttention(
-            num_heads=num_heads,
-            d_q=d_q,
-            d_k=d_q,
+            num_heads,
             d_model=d_model,
             masked=False
         )
         self.ln1 = LayerNorm(d_model)
 
-        self.ffn = nn.Linear(d_model, d_model)
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, 4 * d_model),
+            nn.ReLU(),
+            nn.Linear(4 * d_model, d_model)
+        )
         self.ln2 = LayerNorm(d_model)
         
 
     def forward(self, x):
         
-        x = x + self.mh_attention(x)
+        x = x + self.mh_attention(x, x, x)
         x = self.ln1(x)
 
         x = x + self.ffn(x)
