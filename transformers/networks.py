@@ -204,7 +204,7 @@ class Transformers(nn.Module):
         self.encoders = nn.ModuleList([TransformersEncoder(enc_heads, self.d_model) for _ in range(encoder_depth)])
         self.decoders = nn.ModuleList([TransformersDecoder(dec_heads, self.d_model) for _ in range(decoder_depth)])
 
-    def forward(self, src, tgt):
+    def forward(self, src, tgt, train=False):
 
         if self.embeddings is None:
             raise Exception("Embeddings must be created first")
@@ -224,7 +224,7 @@ class Transformers(nn.Module):
             
         dec_output = tgt_embedded
         for decoder in self.decoders:
-            dec_output = decoder(dec_output, enc_output)
+            dec_output = decoder(dec_output, enc_output, return_probabilities=(not train))
         
         return self.embeddings.decode(dec_output)
 

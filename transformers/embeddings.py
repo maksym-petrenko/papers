@@ -117,10 +117,11 @@ class Embeddings(nn.Module):
 
         return result
 
-    def decode(self, text) -> str:
+    def decode(self, text, return_probabilities=False) -> str:
 
         proj = self.projection(text)
-        print(proj.size())
+        if return_probabilities:
+            return proj
 
         tokenids = [torch.argmax(proj[i]) for i in range(len(text))]
         text = ""
