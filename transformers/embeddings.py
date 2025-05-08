@@ -26,7 +26,7 @@ class TrieNode:
             if node is None: 
                 return previous_node
         if node is self:
-            return TrieNode('<UNK>', None)
+            return TrieNode('<UNK>', 1)
         return node
     
     def add_token(self, token, index):
@@ -49,7 +49,7 @@ class Embeddings(nn.Module):
             self,
             d_model: int,                                     # unchangeble
             vocab_size: int,                                  # can be changed with an internal funcion
-            dataset_path: str,                                # path to the dataset, makes sense only if vocab_size is defined
+            dataset_path: str | None = None,                                # path to the dataset, makes sense only if vocab_size is defined
             saved_tokens_path: str | None = None,             # file with saved tokenization
             min_token_occurrence: float = 1e-6,               # min number of average occurances of the token in the dataset per line
             verbose: int = 1                                  # value of 0 or 1 representing whether info is printed
@@ -66,6 +66,8 @@ class Embeddings(nn.Module):
         if saved_tokens_path is not None:
             tokens = read_tokens(saved_tokens_path)
         else:
+            if dataset_path is None:
+                raise Exception("input must contain either dataset path or saved tokens path!")
             tokens = tokenize(
                 vocab_size=vocab_size,
                 dataset_path=dataset_path,
@@ -91,7 +93,8 @@ class Embeddings(nn.Module):
             result = torch.zeros(window, self.d_model)
         else:
             result = torch.zeros(1, self.d_model)
-        i = 0
+        result[0] = self.embeddings[2]
+        i = 1
         
         for word in words:
             while word:
@@ -107,7 +110,10 @@ class Embeddings(nn.Module):
                     if i >= window:
                         break
             if i == window:
-                result[i + 1] = self.embeddings[2]
+                result[i + 1] = self.embeddings[3]
+
+            i += 1
+            result[i + 1] = self.embeddings[4]
 
         return result
 

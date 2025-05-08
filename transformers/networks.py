@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from embeddings import Embeddings
-import embeddings
 from helper import positional_encoding
 
 

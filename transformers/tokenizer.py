@@ -110,7 +110,7 @@ def tokenize(
         token_length += 1
 
     data = heapq.nlargest(vocab_size, data.items(), key=lambda item: item[1])
-    tokens = [" ", "<UNK>", "<EOS>", "<PAD>"] + [token[0] for token in data]
+    tokens = ["<UNK>", "<SOS>", "<EOS>", "<PAD>", " "] + [token[0] for token in data]
 
     return tokens
 
