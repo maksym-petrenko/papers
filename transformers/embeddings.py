@@ -1,5 +1,5 @@
 import torch
-from torch import nn
+from torch import nn, wait
 from tokenizer import tokenize, read_tokens
 
 
@@ -85,7 +85,7 @@ class Embeddings(nn.Module):
     def encode(
             self, 
             text: str, 
-            window: int | None = None
+            window: int | None = None,
         ):
         words = text.split()
         
@@ -107,13 +107,19 @@ class Embeddings(nn.Module):
                 word = word[len(best.token):]
                 i += 1
                 if window is not None:
-                    if i >= window:
+                    if i >= window - 1:
                         break
-            if i == window:
-                result[i + 1] = self.embeddings[3]
 
+            result[i] = self.embeddings[4]  # add " " (space token)
             i += 1
-            result[i + 1] = self.embeddings[4]
+        
+        if window is not None:
+            if i == window - 1:
+                result[i] = self.embeddings[2]  # add <EOS>
+                i += 1
+            while i < window:
+                result[i] = self.embeddings[3]  # add <PAD>
+                i += 1
 
         return result
 

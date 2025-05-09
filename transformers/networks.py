@@ -184,6 +184,7 @@ class Transformers(nn.Module):
         dec_heads: int,
         d_model: int,
         vocab_size: int,
+        window: int,
         tokens_path: str | None = None
     ) -> None:
 
@@ -191,6 +192,7 @@ class Transformers(nn.Module):
 
         self.d_model = d_model
         self.vocab_size = vocab_size
+        self.window = window
 
         if tokens_path is not None:
             self.embeddings = Embeddings(
@@ -209,7 +211,7 @@ class Transformers(nn.Module):
         if self.embeddings is None:
             raise Exception("Embeddings must be created first")
 
-        src_embedded = self.embeddings.encode(src)
+        src_embedded = self.embeddings.encode(src, window=self.window)
         tgt_embedded = self.embeddings.encode(tgt)
         
         src_pos = positional_encoding(src_embedded.size(1), self.d_model).to(device=src.device)
