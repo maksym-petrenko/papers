@@ -93,7 +93,7 @@ class Embeddings(nn.Module):
             result = torch.zeros(window, self.d_model)
         else:
             result = torch.zeros(1, self.d_model)
-        result[0] = self.embeddings[2]
+        result[0] = self.embeddings[2]  # add <SOS>
         i = 1
         
         for word in words:
