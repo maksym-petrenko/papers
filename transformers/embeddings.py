@@ -25,7 +25,7 @@ class TrieNode:
             node = previous_node.find_child(char)
             if node is None: 
                 return previous_node
-        if node is self:
+        if node.index is None:
             return TrieNode('<UNK>', 1)
         return node
     
@@ -77,8 +77,9 @@ class Embeddings(nn.Module):
 
         self.tokens = TrieNode("", None)
         self.id_to_token = tokens
-        for i, token in enumerate(tokens):
-            self.tokens.add_token(tokens, i)
+        self.tokens.add_token(" ", 0)
+        for i, token in enumerate(tokens[1:]):
+            self.tokens.add_token(token, i)
         self.embeddings = torch.rand(vocab_size, d_model)
         self.projection = nn.Linear(d_model, vocab_size)
 
@@ -143,6 +144,6 @@ class Embeddings(nn.Module):
                 text = text[1:]
             else:
                 text = text[len(best.token):]
-        
+
         return tokens
 

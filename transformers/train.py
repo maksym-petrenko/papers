@@ -6,7 +6,7 @@ import pandas as pd
 
 device = "cuda"
 
-model = Transformers(6, 6, 8, 8, 512, 20000, "tokens.txt").to(device=device)
+model = Transformers(6, 6, 8, 8, 512, 20000, 1024, "tokens.txt").to(device=device)
 df = pd.read_csv(
     "dataset.csv",
     names=["en", "fr"]
@@ -24,14 +24,15 @@ for epoch in tqdm(range(1, epochs + 1)):
         optimizer.zero_grad()
 
         src = str(line["en"])
-        tgt = model.embeddings.encode(str(line["fr"]))
-        
+        output_tokens = model.embeddings.tokenize(str(line["fr"]))
+
         total_loss = 0
 
-        for i in range(1, len(tgt)):
-            tokens = tgt[:i]
-            text = "".join([model.embeddings.id_to_token(token) for token in tokens])
-            
+        for i in range(1, len(output_tokens)):
+            tokens = output_tokens[:i]
+            text = "".join([model.embeddings.id_to_token[token] for token in tokens])
+            print(text)
+
             probs = model(src, text, train=True)
 
             expected_probs = torch.zeros(model.vocab_size)
@@ -44,7 +45,7 @@ for epoch in tqdm(range(1, epochs + 1)):
 
             total_loss += float(loss)
             
-        print("loss:", total_loss / len(tgt))
+        print("loss:", total_loss / len(output_tokens))
 
 torch.save(model, "trained.pt")
 
