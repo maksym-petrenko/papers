@@ -110,6 +110,8 @@ class Embeddings(nn.Module):
                     if i >= window - 1:
                         break
 
+            if window is None:
+                result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
             result[i] = self.embeddings[4]  # add " " (space token)
             i += 1
         
@@ -138,4 +140,19 @@ class Embeddings(nn.Module):
             text += self.id_to_token[tokenid]
         
         return text
+
+    def tokenize(self, text) -> list[str]:
+
+        tokens = []
+
+        while text:
+            best = self.tokens.find_best_match(text)
+            tokens.append(best.token)
+
+            is token.token == "<UNK>":
+                text = text[1:]
+            else:
+                text = text[len(best.token):]
+        
+        return tokens
 
