@@ -1,5 +1,5 @@
 import torch
-from torch import nn, wait
+from torch import nn
 from tokenizer import tokenize, read_tokens
 
 
@@ -77,8 +77,8 @@ class Embeddings(nn.Module):
 
         self.tokens = TrieNode("", None)
         self.id_to_token = tokens
-        for i in range(len(tokens)):
-            self.tokens.add_token(tokens[i], i)
+        for i, token in enumerate(tokens):
+            self.tokens.add_token(tokens, i)
         self.embeddings = torch.rand(vocab_size, d_model)
         self.projection = nn.Linear(d_model, vocab_size)
 
@@ -87,33 +87,23 @@ class Embeddings(nn.Module):
             text: str, 
             window: int | None = None,
         ):
-        words = text.split()
-        
         if window is not None:
             result = torch.zeros(window, self.d_model)
         else:
             result = torch.zeros(1, self.d_model)
         result[0] = self.embeddings[2]  # add <SOS>
         i = 1
-        
-        for word in words:
-            while word:
-                if window is None:
-                    result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
+       
+        tokens = self.tokenize(text)
 
-                best = self.tokens.find_best_match(word)
-                result[i] = self.embeddings[best.index if best.index is not None else 1]
-                
-                word = word[len(best.token):]
-                i += 1
-                if window is not None:
-                    if i >= window - 1:
-                        break
-
+        for i, token in enumerate(tokens):
             if window is None:
                 result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
-            result[i] = self.embeddings[4]  # add " " (space token)
-            i += 1
+
+            result[i + 1] = self.embeddings[token]
+
+        if window is None:
+            result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
         
         if window is not None:
             if i == window - 1:
@@ -141,15 +131,15 @@ class Embeddings(nn.Module):
         
         return text
 
-    def tokenize(self, text) -> list[str]:
+    def tokenize(self, text) -> list[int]:
 
         tokens = []
 
         while text:
             best = self.tokens.find_best_match(text)
-            tokens.append(best.token)
+            tokens.append(best.index)
 
-            is token.token == "<UNK>":
+            if best.token == "<UNK>":
                 text = text[1:]
             else:
                 text = text[len(best.token):]
