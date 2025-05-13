@@ -206,7 +206,7 @@ class Transformers(nn.Module):
         self.encoders = nn.ModuleList([TransformersEncoder(enc_heads, self.d_model) for _ in range(encoder_depth)])
         self.decoders = nn.ModuleList([TransformersDecoder(dec_heads, self.d_model) for _ in range(decoder_depth)])
 
-    def forward(self, src, tgt, train=False):
+    def forward(self, src, tgt, train=False, device="cuda"):
 
         if self.embeddings is None:
             raise Exception("Embeddings must be created first")
@@ -214,11 +214,11 @@ class Transformers(nn.Module):
         src_embedded = self.embeddings.encode(src, window=self.window)
         tgt_embedded = self.embeddings.encode(tgt)
         
-        src_pos = positional_encoding(src_embedded.size(1), self.d_model).to(device=src.device)
-        tgt_pos = positional_encoding(tgt_embedded.size(1), self.d_model).to(device=src.device)
+        src_pos = positional_encoding(src_embedded.size(1), self.d_model).to(device=device)
+        tgt_pos = positional_encoding(tgt_embedded.size(1), self.d_model).to(device=device)
         
-        src_embedded = src_embedded + src_pos
-        tgt_embedded = tgt_embedded + tgt_pos
+        src_embedded = torch.cat(src_embedded, src_pos)
+        tgt_embedded = torch.cat(tgt_embedded, tgt_pos)
         
         enc_output = src_embedded
         for encoder in self.encoders:
