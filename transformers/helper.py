@@ -1,21 +1,15 @@
 import torch
 
-
 def positional_encoding(length: int, d_model: int):
+
+    result = torch.zeros((length, d_model))
     
-    result = torch.zeros((d_model, length, 2))
-    
-    indicies = torch.arange(0, length).to(dtype=torch.float32)
-    positions = torch.arange(0, d_model)
+    position = torch.arange(length, dtype=torch.float).unsqueeze(1)
+    div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-torch.log(torch.tensor(10000.0)) / d_model))
+    result[:, 0::2] = torch.sin(div_term)
+    result[:, 1::2] = torch.cos(div_term)
 
-    positions = 0.1 ** (8 * positions / d_model).to(dtype=torch.float32) 
-    positions = positions.unsqueeze(0).reshape((d_model, 1))
-    indicies = indicies.unsqueeze(0)
-    sheet = torch.matmul(positions, indicies)
+    result = result * position
 
-    result[:, :, 0] = torch.sin(sheet)
-    result[:, :, 1] = torch.cos(sheet)
-
-    return result.reshape((d_model, 2, length)).flatten(start_dim=1)
-
+    return result
 
