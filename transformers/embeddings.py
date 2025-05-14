@@ -25,7 +25,7 @@ class TrieNode:
             node = previous_node.find_child(char)
             if node is None: 
                 return previous_node
-        if node.index is None:
+        if node.index is None or node.token == "":
             return TrieNode('<UNK>', 1)
         return node
     
@@ -97,21 +97,26 @@ class Embeddings(nn.Module):
        
         tokens = self.tokenize(text)
 
-        for i, token in enumerate(tokens):
+        for token in tokens:
             if window is None:
                 result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
+            else:
+                if i >= window - 1:
+                    result[-1] = self.embeddings[3]
+                    return result
 
-            result[i + 1] = self.embeddings[token]
+            result[i] = self.embeddings[token]
+            i += 1
 
         if window is None:
             result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
         
         if window is not None:
             if i == window - 1:
-                result[i] = self.embeddings[2]  # add <EOS>
+                result[i] = self.embeddings[3]  # add <EOS>
                 i += 1
             while i < window:
-                result[i] = self.embeddings[3]  # add <PAD>
+                result[i] = self.embeddings[4]  # add <PAD>
                 i += 1
 
         return result
@@ -138,12 +143,12 @@ class Embeddings(nn.Module):
 
         while text:
             best = self.tokens.find_best_match(text)
-            tokens.append(best.index)
 
-            if best.token == "<UNK>":
+            if best.token == "<UNK>" or (not best.token) or best.index is None:
                 text = text[1:]
+                tokens.append(1)
             else:
                 text = text[len(best.token):]
-
+                tokens.append(best.index)
         return tokens
 

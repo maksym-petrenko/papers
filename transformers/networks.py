@@ -36,13 +36,13 @@ class Attention(nn.Module):
         scores = torch.matmul(Q, K)
         scores = scores / (self.d_head ** 0.5)
 
-        size = Q.size[1]
+        size = Q.size()[0]
 
         if self.masked:
             mask = torch.triu(torch.ones(size, size), diagonal=1).bool().to(q.device)
             scores = scores.masked_fill(mask, float("-inf"))
 
-        scores = torch.softmax(scores, dim=2)
+        scores = torch.softmax(scores, dim=-2)
 
         return torch.matmul(scores, V)
 
@@ -211,24 +211,24 @@ class Transformers(nn.Module):
         if self.embeddings is None:
             raise Exception("Embeddings must be created first")
 
-        src_embedded = self.embeddings.encode(src, window=self.window)
-        tgt_embedded = self.embeddings.encode(tgt)
+        src_embedded = self.embeddings.encode(src, window=self.window).to(device=device)
+        tgt_embedded = self.embeddings.encode(tgt).to(device=device)
         
-        src_pos = positional_encoding(src_embedded.size(1), self.d_model).to(device=device)
-        tgt_pos = positional_encoding(tgt_embedded.size(1), self.d_model).to(device=device)
-        
-        src_embedded = torch.cat(src_embedded, src_pos)
-        tgt_embedded = torch.cat(tgt_embedded, tgt_pos)
+        src_pos = positional_encoding(src_embedded.size(0), self.d_model).to(device=device)
+        tgt_pos = positional_encoding(tgt_embedded.size(0), self.d_model).to(device=device)
+
+        src_embedded = src_embedded + src_pos
+        tgt_embedded = tgt_embedded + tgt_pos
         
         enc_output = src_embedded
         for encoder in self.encoders:
             enc_output = encoder(enc_output)
-            
+
         dec_output = tgt_embedded
         for decoder in self.decoders:
-            dec_output = decoder(dec_output, enc_output, return_probabilities=(not train))
-        
-        return self.embeddings.decode(dec_output)
+            dec_output = decoder(dec_output, enc_output)
+
+        return self.embeddings.decode(dec_output[-1], return_probabilities=train)
 
     def initiate_embeddings(self, embeddings):
 
