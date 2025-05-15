@@ -211,24 +211,30 @@ class Transformers(nn.Module):
         if self.embeddings is None:
             raise Exception("Embeddings must be created first")
 
-        src_embedded = self.embeddings.encode(src, window=self.window).to(device=device)
         tgt_embedded = self.embeddings.encode(tgt).to(device=device)
-        
-        src_pos = positional_encoding(src_embedded.size(0), self.d_model).to(device=device)
         tgt_pos = positional_encoding(tgt_embedded.size(0), self.d_model).to(device=device)
-
-        src_embedded = src_embedded + src_pos
         tgt_embedded = tgt_embedded + tgt_pos
         
-        enc_output = src_embedded
-        for encoder in self.encoders:
-            enc_output = encoder(enc_output)
+        enc_output = self.encode(src, device)
 
         dec_output = tgt_embedded
         for decoder in self.decoders:
             dec_output = decoder(dec_output, enc_output)
 
         return self.embeddings.decode(dec_output[-1], return_probabilities=train)
+    
+    def encode(self, src, device):
+        src_embedded = self.embeddings.encode(src, window=self.window).to(device=device)
+        
+        src_pos = positional_encoding(src_embedded.size(0), self.d_model).to(device=device)
+
+        src_embedded = src_embedded + src_pos
+        
+        enc_output = src_embedded
+        for encoder in self.encoders:
+            enc_output = encoder(enc_output)
+        
+        return enc_output
 
     def initiate_embeddings(self, embeddings):
 
