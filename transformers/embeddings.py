@@ -49,7 +49,7 @@ class Embeddings(nn.Module):
             self,
             d_model: int,                                     # unchangeble
             vocab_size: int,                                  # can be changed with an internal funcion
-            dataset_path: str | None = None,                                # path to the dataset, makes sense only if vocab_size is defined
+            dataset_path: str | None = None,                  # path to the dataset, makes sense only if vocab_size is defined
             saved_tokens_path: str | None = None,             # file with saved tokenization
             min_token_occurrence: float = 1e-6,               # min number of average occurances of the token in the dataset per line
             verbose: int = 1                                  # value of 0 or 1 representing whether info is printed
@@ -85,38 +85,25 @@ class Embeddings(nn.Module):
 
     def encode(
             self, 
-            text: str | list[int], 
+            text: list[str] | list[list[int]], 
             window: int | None = None,
         ):
+
+        batch = len(text)
 
         tokens = text
         if isinstance(text, str):
             tokens = self.tokenize(text)
 
         if window is not None:
-            result = torch.zeros(window, self.d_model)
-        else:
-            result = torch.zeros(len(tokens) + 2, self.d_model)
-        result[0] = self.embeddings[2]  # add <SOS>
-        i = 1
+            tokens = [[sample[i] for i in range(window - 2) if i < len(sample) else 3] for sample in tokens]
+            tokens = torch.tensor(tokens)
 
-        for token in tokens:
-            if i >= window - 1:
-                result[-1] = self.embeddings[3]
-                return result
+            tokens = torch.cat((torch.ones(batch, window), tokens, 2 * torch.ones(batch, window)))
+            return self.embeddings[tokens]
 
-            result[i] = self.embeddings[token]
-            i += 1
-        
-        if window is not None:
-            if i == window - 1:
-                result[i] = self.embeddings[3]  # add <EOS>
-                i += 1
-            while i < window:
-                result[i] = self.embeddings[4]  # add <PAD>
-                i += 1
-
-        return result
+        tokens = [[1] + sample + [2] for sample in tokens]    
+        return [self.embeddings[torch.tensor(sample)] for sample in tokens]
 
     def decode(self, text, return_probabilities=False) -> str:
 
@@ -134,18 +121,22 @@ class Embeddings(nn.Module):
         
         return text
 
-    def tokenize(self, text) -> list[int]:
+    def tokenize(self, text: list[str]) -> list[int]:
+        
+        result = []
+        for line in text:
+            tokens = []
 
-        tokens = []
+            while line:
+                best = self.tokens.find_best_match(line)
 
-        while text:
-            best = self.tokens.find_best_match(text)
+                if best.token == "<UNK>" or (not best.token) or best.index is None:
+                    line = text[1:]
+                    tokens.append(1)
+                else:
+                    line = text[len(best.token):]
+                    tokens.append(best.index)
+            result.append(tokens)
 
-            if best.token == "<UNK>" or (not best.token) or best.index is None:
-                text = text[1:]
-                tokens.append(1)
-            else:
-                text = text[len(best.token):]
-                tokens.append(best.index)
-        return tokens
+        return result
 
