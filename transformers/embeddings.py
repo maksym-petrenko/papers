@@ -85,31 +85,28 @@ class Embeddings(nn.Module):
 
     def encode(
             self, 
-            text: str, 
+            text: str | list[int], 
             window: int | None = None,
         ):
+
+        tokens = text
+        if isinstance(text, str):
+            tokens = self.tokenize(text)
+
         if window is not None:
             result = torch.zeros(window, self.d_model)
         else:
-            result = torch.zeros(1, self.d_model)
+            result = torch.zeros(len(tokens) + 2, self.d_model)
         result[0] = self.embeddings[2]  # add <SOS>
         i = 1
-       
-        tokens = self.tokenize(text)
 
         for token in tokens:
-            if window is None:
-                result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
-            else:
-                if i >= window - 1:
-                    result[-1] = self.embeddings[3]
-                    return result
+            if i >= window - 1:
+                result[-1] = self.embeddings[3]
+                return result
 
             result[i] = self.embeddings[token]
             i += 1
-
-        if window is None:
-            result = torch.cat((result, torch.zeros(1, self.d_model)), 0)
         
         if window is not None:
             if i == window - 1:
