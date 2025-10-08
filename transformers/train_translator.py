@@ -1,50 +1,47 @@
-from networks import Transformers
-from tqdm import tqdm
-import torch
-from torch import nn
 import pandas as pd
+import torch
+from networks import Transformers
+from torch import nn
+from tqdm import tqdm
 
-device = "cuda"
+if __name__ == "__main__":
 
-model = Transformers(6, 6, 8, 8, 512, 20000, 1024, "tokens.txt").to(device=device)
-df = pd.read_csv(
-    "dataset.csv",
-    names=["en", "fr"]
-)
+    device = "cuda"
 
-epochs = 100
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    print("Loading tokenizer:")
+    model = Transformers(6, 6, 8, 8, 512, 20000, 1024, "tokens.txt").to(device=device)
+    df = pd.read_csv("dataset.csv", names=["en", "fr"])
 
-criterion = nn.CrossEntropyLoss()
+    epochs = 100
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-for epoch in tqdm(range(1, epochs + 1)):
-    
-    for _, line in df.iterrows():
+    criterion = nn.CrossEntropyLoss()
 
-        optimizer.zero_grad()
+    print("Starting training:")
+    for epoch in tqdm(range(1, epochs + 1)):
 
-        src = str(line["en"])
-        output_tokens = [2] + model.embeddings.tokenize(str(line["fr"]))
+        for _, line in df.iterrows():
 
-        total_loss = 0
+            optimizer.zero_grad()
 
-        for i in range(1, len(output_tokens)):
-            tokens = output_tokens[:i]
-            text = "".join([model.embeddings.id_to_token[token] for token in tokens])
+            src = str(line["en"])
+            output_tokens = model.embeddings.tokenize(str(line["fr"]))
 
-            probs = model(src, text, train=True)
+            total_loss = 0
 
-            expected_probs = torch.zeros(model.vocab_size).to(device=device)
-            expected_probs[output_tokens[i]] = 1
-    
-            loss = criterion(probs, expected_probs)
+            for i in range(1, len(output_tokens)):
+                probs = model(src, output_tokens, train=True)
 
-            loss.backward()
-            optimizer.step()
+                expected_probs = torch.zeros(model.vocab_size).to(device=device)
+                expected_probs[output_tokens[i]] = 1
 
-            total_loss += float(loss)
+                loss = criterion(probs, expected_probs)
 
-        print("loss:", total_loss / len(output_tokens))
+                loss.backward()
+                optimizer.step()
 
-torch.save(model, "trained.pt")
+                total_loss += float(loss)
 
+            print("loss:", total_loss / len(output_tokens))
+
+    torch.save(model, "trained.pt")
