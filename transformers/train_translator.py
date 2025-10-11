@@ -10,6 +10,7 @@ if __name__ == "__main__":
 
     print("Loading tokenizer:")
     model = Transformers(6, 6, 8, 8, 512, 20000, 1024, "tokens.txt").to(device=device)
+    print("Loading data:")
     df = pd.read_csv("dataset.csv", names=["en", "fr"])
 
     epochs = 100

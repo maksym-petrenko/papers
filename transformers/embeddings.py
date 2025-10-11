@@ -1,6 +1,6 @@
 import torch
+from tokenizer import read_tokens, tokenize
 from torch import nn
-from tokenizer import tokenize, read_tokens
 
 
 class TrieNode:
@@ -12,9 +12,9 @@ class TrieNode:
         self.children = dict()
 
     def find_child(self, char):
-        
+
         return self.children.get(char)
-    
+
     def find_best_match(self, string):
 
         previous_node = self
@@ -23,16 +23,16 @@ class TrieNode:
         for char in string:
             previous_node = node
             node = previous_node.find_child(char)
-            if node is None: 
+            if node is None:
                 return previous_node
         if node.index is None or node.token == "":
-            return TrieNode('<UNK>', 1)
+            return TrieNode("<UNK>", 1)
         return node
-    
+
     def add_token(self, token, index):
 
         best = self.find_best_match(token)
-        to_add = token[len(best.token):] 
+        to_add = token[len(best.token) :]
 
         if to_add == best.token:
             best.index = index
@@ -46,14 +46,16 @@ class TrieNode:
 class Embeddings(nn.Module):
 
     def __init__(
-            self,
-            d_model: int,                                     # unchangeble
-            vocab_size: int,                                  # can be changed with an internal funcion
-            dataset_path: str | None = None,                  # path to the dataset, makes sense only if vocab_size is defined
-            saved_tokens_path: str | None = None,             # file with saved tokenization
-            min_token_occurrence: float = 1e-6,               # min number of average occurances of the token in the dataset per line
-            verbose: int = 1                                  # value of 0 or 1 representing whether info is printed
-        ) -> None:
+        self,
+        d_model: int,  # unchangeble
+        vocab_size: int,  # can be changed with an internal funcion
+        dataset_path: (
+            str | None
+        ) = None,  # path to the dataset, makes sense only if vocab_size is defined
+        saved_tokens_path: str | None = None,  # file with saved tokenization
+        min_token_occurrence: float = 1e-6,  # min number of average occurances of the token in the dataset per line
+        verbose: int = 1,  # value of 0 or 1 representing whether info is printed
+    ) -> None:
 
         if verbose not in [0, 1]:
             raise Exception("Verbose must be equal to `0` or `1`!")
@@ -62,17 +64,18 @@ class Embeddings(nn.Module):
         self.d_model = d_model
         self.vocab_size = vocab_size
 
-
         if saved_tokens_path is not None:
             tokens = read_tokens(saved_tokens_path)
         else:
             if dataset_path is None:
-                raise Exception("input must contain either dataset path or saved tokens path!")
+                raise Exception(
+                    "input must contain either dataset path or saved tokens path!"
+                )
             tokens = tokenize(
                 vocab_size=vocab_size,
                 dataset_path=dataset_path,
                 min_token_occurrence=min_token_occurrence,
-                verbose=verbose
+                verbose=verbose,
             )
 
         self.tokens = TrieNode("", None)
@@ -84,10 +87,10 @@ class Embeddings(nn.Module):
         self.projection = nn.Linear(d_model, vocab_size)
 
     def encode(
-            self, 
-            text: list[str] | list[list[int]], 
-            window: int | None = None,
-        ):
+        self,
+        text: list[str] | list[list[int]],
+        window: int | None = None,
+    ) -> list | torch.Tensor:
 
         batch = len(text)
 
@@ -96,14 +99,20 @@ class Embeddings(nn.Module):
             tokens = self.tokenize(text)
 
         if window is not None:
-            tokens = [[sample[i] for i in range(window - 2) if i < len(sample) else 3] for sample in tokens]
-            tokens = torch.tensor(tokens)
+            tokens = [
+                [sample[i] if i < len(sample) else 3 for i in range(window - 2)]
+                for sample in tokens
+            ]
+            tokens = [[1] + sample + [2] for sample in tokens]
+            tokens = torch.tensor(tokens, dtype=torch.int)
+            print(tokens.size())
 
-            tokens = torch.cat((torch.ones(batch, window), tokens, 2 * torch.ones(batch, window)))
-            return self.embeddings[tokens]
+            tokens = torch.cat(
+                (torch.ones(batch, window), tokens, 2 * torch.ones(batch, window))
+            ).int()
+            return torch.cat([self.embeddings[sample] for sample in tokens], dim=0)
 
-        tokens = [[1] + sample + [2] for sample in tokens]    
-        return [self.embeddings[torch.tensor(sample)] for sample in tokens]
+        return tokens
 
     def decode(self, text, return_probabilities=False) -> str:
 
@@ -111,6 +120,7 @@ class Embeddings(nn.Module):
         if return_probabilities:
             return proj
 
+        # batches unnecessary here yet
         tokenids = [torch.argmax(proj[i]) for i in range(len(text))]
         text = ""
 
@@ -118,11 +128,11 @@ class Embeddings(nn.Module):
             if tokenid == 2:
                 break
             text += self.id_to_token[tokenid]
-        
+
         return text
 
     def tokenize(self, text: list[str]) -> list[int]:
-        
+
         result = []
         for line in text:
             tokens = []
@@ -134,9 +144,8 @@ class Embeddings(nn.Module):
                     line = text[1:]
                     tokens.append(1)
                 else:
-                    line = text[len(best.token):]
+                    line = text[len(best.token) :]
                     tokens.append(best.index)
             result.append(tokens)
 
         return result
-
