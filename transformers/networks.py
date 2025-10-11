@@ -32,10 +32,14 @@ class Attention(nn.Module):
         scores = torch.matmul(Q, K)
         scores = scores / (self.d_head**0.5)
 
-        size = Q.size()[0]
+        size = Q.size()[-2]
 
         if self.masked:
             mask = torch.triu(torch.ones(size, size), diagonal=1).bool().to(q.device)
+            print(mask.size())
+            if len(scores.size()) == 3:  # AKA has batch
+                mask = mask.repeat(scores.size(0), 1, 1)
+            print(scores.size(), mask.size())
             scores = scores.masked_fill(mask, float("-inf"))
 
         scores = torch.softmax(scores, dim=-2)
