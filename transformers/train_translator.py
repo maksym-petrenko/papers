@@ -1,10 +1,14 @@
 import pandas as pd
 import torch
+import wandb
 from networks import Transformers
 from torch import nn
 from tqdm import tqdm
 
+# Before running, log in to wandb by running `wandb login` in your terminal.
+
 if __name__ == "__main__":
+    wandb.init(entity="maksym-petrenko", project="transformers")
 
     device = "cuda"
 
@@ -19,10 +23,10 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
 
     print("Starting training:")
-    for epoch in tqdm(range(1, epochs + 1)):
-
-        for _, line in df.iterrows():
-
+    for epoch in range(config["epochs"]):
+        model.train()
+        batch_iterator = iter(train_dataloader)
+        for i, batch in enumerate(tqdm(train_dataloader, desc=f"Processing Batch {epoch+1}/{config['epochs']}", leave=False)):
             optimizer.zero_grad()
 
             src = str(line["en"])
@@ -31,18 +35,28 @@ if __name__ == "__main__":
             padded_tokens = []
             for sample in output_tokens:
                 if len(sample) > model.window - 2:
-                    sample = sample[:model.window - 2]
-                padded_sample = [1] + sample + [2] + [3] * (model.window - len(sample) - 2)
+                    sample = sample[: model.window - 2]
+                padded_sample = (
+                    [1] + sample + [2] + [3] * (model.window - len(sample) - 2)
+                )
                 padded_tokens.append(padded_sample)
-            output_tokens_tensor = torch.tensor(padded_tokens, dtype=torch.long).to(device)
+            output_tokens_tensor = torch.tensor(padded_tokens, dtype=torch.long).to(
+                device
+            )
 
             logits = model([src], output_tokens, device=device)
 
-            loss = criterion(logits.view(-1, model.vocab_size), output_tokens_tensor.view(-1))
+            loss = criterion(
+                logits.view(-1, model.vocab_size), output_tokens_tensor.view(-1)
+            )
 
             loss.backward()
             optimizer.step()
 
-            print("loss:", float(loss))
+            wandb.log({"loss": float(loss)})
+            epoch_loss += float(loss)
+
+        wandb.log({"epoch_loss": epoch_loss / len(df)})
+        print(f"Epoch {epoch}, Loss: {epoch_loss / len(df)}")
 
     torch.save(model, "trained.pt")
