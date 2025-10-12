@@ -36,13 +36,13 @@ class Attention(nn.Module):
 
         if self.masked:
             mask = torch.triu(torch.ones(size, size), diagonal=1).bool().to(q.device)
-            print(mask.size())
+            
             if len(scores.size()) == 3:  # AKA has batch
                 mask = mask.repeat(scores.size(0), 1, 1)
-            print(scores.size(), mask.size())
+            
             scores = scores.masked_fill(mask, float("-inf"))
 
-        scores = torch.softmax(scores, dim=-2)
+        scores = torch.softmax(scores, dim=-1)
 
         return torch.matmul(scores, V)
 
@@ -188,31 +188,29 @@ class Transformers(nn.Module):
             [TransformersDecoder(dec_heads, self.d_model) for _ in range(decoder_depth)]
         )
 
-    def forward(self, src, tgt, train=False, device="cuda"):
+    def forward(self, src, tgt, device="cuda"):
 
         if self.embeddings is None:
             raise Exception("Embeddings must be created first")
 
         tgt_embedded = self.embeddings.encode(tgt, window=self.window).to(device=device)
-        tgt_pos = positional_encoding(tgt_embedded.size(0), self.d_model).to(
+        tgt_pos = positional_encoding(tgt_embedded.size(-2), self.d_model).to(
             device=device
         )
-        print(tgt_embedded.size(), tgt_pos.size())
         tgt_embedded = tgt_embedded + tgt_pos
 
         enc_output = self.encode(src, device)
-        enc_output = enc_output.repeat(len(tgt), 1, 1)
 
         dec_output = tgt_embedded
         for decoder in self.decoders:
             dec_output = decoder(dec_output, enc_output)
 
-        return self.embeddings.decode(dec_output[-1], return_probabilities=train)
+        return self.embeddings.projection(dec_output)
 
     def encode(self, src, device):
         src_embedded = self.embeddings.encode(src, window=self.window).to(device=device)
 
-        src_pos = positional_encoding(src_embedded.size(0), self.d_model).to(
+        src_pos = positional_encoding(src_embedded.size(1), self.d_model).to(
             device=device
         )
 

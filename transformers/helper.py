@@ -9,7 +9,7 @@ def positional_encoding(length: int, d_model: int):
     result[:, 0::2] = torch.sin(div_term)
     result[:, 1::2] = torch.cos(div_term)
 
-    result = result * position
+    result = result + position
 
     return result
 

@@ -26,23 +26,23 @@ if __name__ == "__main__":
             optimizer.zero_grad()
 
             src = str(line["en"])
-            output_tokens = model.embeddings.tokenize(str(line["fr"]))
+            output_tokens = model.embeddings.tokenize([str(line["fr"])])
 
-            total_loss = 0
+            padded_tokens = []
+            for sample in output_tokens:
+                if len(sample) > model.window - 2:
+                    sample = sample[:model.window - 2]
+                padded_sample = [1] + sample + [2] + [3] * (model.window - len(sample) - 2)
+                padded_tokens.append(padded_sample)
+            output_tokens_tensor = torch.tensor(padded_tokens, dtype=torch.long).to(device)
 
-            for i in range(1, len(output_tokens)):
-                probs = model(src, output_tokens, train=True)
+            logits = model([src], output_tokens, device=device)
 
-                expected_probs = torch.zeros(model.vocab_size).to(device=device)
-                expected_probs[output_tokens[i]] = 1
+            loss = criterion(logits.view(-1, model.vocab_size), output_tokens_tensor.view(-1))
 
-                loss = criterion(probs, expected_probs)
+            loss.backward()
+            optimizer.step()
 
-                loss.backward()
-                optimizer.step()
-
-                total_loss += float(loss)
-
-            print("loss:", total_loss / len(output_tokens))
+            print("loss:", float(loss))
 
     torch.save(model, "trained.pt")

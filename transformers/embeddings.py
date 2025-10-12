@@ -92,27 +92,21 @@ class Embeddings(nn.Module):
         window: int | None = None,
     ) -> list | torch.Tensor:
 
-        batch = len(text)
-
         tokens = text
-        if isinstance(text, str):
+        if isinstance(text[0], str):
             tokens = self.tokenize(text)
 
         if window is not None:
-            tokens = [
-                [sample[i] if i < len(sample) else 3 for i in range(window - 2)]
-                for sample in tokens
-            ]
-            tokens = [[1] + sample + [2] for sample in tokens]
-            tokens = torch.tensor(tokens, dtype=torch.int)
-            print(tokens.size())
+            padded_tokens = []
+            for sample in tokens:
+                if len(sample) > window - 2:
+                    sample = sample[:window - 2]
+                padded_sample = [1] + sample + [2] + [3] * (window - len(sample) - 2)
+                padded_tokens.append(padded_sample)
+            tokens = torch.tensor(padded_tokens, dtype=torch.long)
+            return self.embeddings[tokens]
 
-            tokens = torch.cat(
-                (torch.ones(batch, window), tokens, 2 * torch.ones(batch, window))
-            ).int()
-            return torch.cat([self.embeddings[sample] for sample in tokens], dim=0)
-
-        return tokens
+        return self.embeddings[torch.tensor(tokens, dtype=torch.long)]
 
     def decode(self, text, return_probabilities=False) -> str:
 
@@ -141,7 +135,7 @@ class Embeddings(nn.Module):
                 best = self.tokens.find_best_match(line)
 
                 if best.token == "<UNK>" or (not best.token) or best.index is None:
-                    line = text[1:]
+                    line = line[1:]
                     tokens.append(1)
                 else:
                     line = text[len(best.token) :]
