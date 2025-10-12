@@ -23,10 +23,9 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
 
     print("Starting training:")
-    for epoch in range(config["epochs"]):
-        model.train()
-        batch_iterator = iter(train_dataloader)
-        for i, batch in enumerate(tqdm(train_dataloader, desc=f"Processing Batch {epoch+1}/{config['epochs']}", leave=False)):
+    for epoch in range(1, epochs + 1):
+        epoch_loss = 0
+        for _, line in tqdm(df.iterrows()):
             optimizer.zero_grad()
 
             src = str(line["en"])
