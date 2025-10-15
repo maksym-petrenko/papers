@@ -84,6 +84,8 @@ class ViT(nn.Module):
     ):
 
         self.super.__init__()
+        self.img_size = img_size
+        self.chunk_size = chunk_size
 
         if img_size % chunk_size:
             raise Exception("`chunk_size` must divide `img_size`")
@@ -109,3 +111,11 @@ class ViT(nn.Module):
         )
 
         self.linear = nn.Linear(img_size**2 + chunk_size**2, num_classes)
+
+    def forward(self, x): ...
+
+    def crop(self, imgs):
+
+        num_chunks = self.img_size // self.chunk_size
+
+        return imgs.chunk(num_chunks, -1).chunk(num_chunks, -2)
