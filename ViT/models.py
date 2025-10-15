@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn.functional import layer_norm, softmax
 
 
 class Attention(nn.Module):
@@ -93,14 +94,10 @@ class ViT(nn.Module):
         if (chunk_size**2) % num_heads:
             raise Exception("`num_heads` must divide the square of `chunk_size`")
 
-        self.positional_embeddigns = torch.rand((chunk_size**2,))
+        self.positional_embeddigns = nn.Parameter(torch.rand((chunk_size**2,)))
 
-        self.linears = nn.ModuleList(
-            [
-                nn.Linear(chunk_size**2, chunk_size**2)
-                for _ in range((img_size // chunk_size) ** 2)
-            ]
-        )
+        self.weights = nn.Parameter(torch.rand(num_heads, chunk_size ** 2, chunk_size ** 2))
+        self.biases = nn.Parameter(torch.rand(num_heads, chunk_size ** 2))
 
         self.attention = MultiHeadAttention(num_heads, chunk_size**2)
 
@@ -115,6 +112,16 @@ class ViT(nn.Module):
     def forward(self, x):
 
         x = self.crop(x)
+
+        x = torch.einsum("bhi,hoi->bho", x, self.weights) + self.biases
+        x = torch.cat((x, self.positional_embeddigns.repead((x.size(1), 1)), dim=1)
+
+        x = x + self.attention(layer_norm(x))
+        x = x + self.encoder_mlp(layer_norm(x))
+
+        x = self.linear(x)
+
+        return softmax(x, dim=1)
 
     def crop(self, imgs):
 
