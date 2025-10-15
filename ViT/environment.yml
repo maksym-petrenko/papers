@@ -1,0 +1,11 @@
+name: vit
+channels:
+  - pytorch
+  - defaults
+  - conda-forge
+dependencies:
+  - python >= 3.11.*
+  - pytorch
+  - pip:
+    - -r requirements.txt
+
