@@ -70,3 +70,42 @@ class MultiHeadAttention(nn.Module):
         concatenated = torch.cat(head_chunks, dim=-1)
 
         return self.proj(concatenated)
+
+
+class ViT(nn.Module):
+
+    def __init__(
+        self,
+        img_size: int,
+        chunk_size: int,
+        num_heads: int,
+        mlp_rank: int,
+        num_classes: int,
+    ):
+
+        self.super.__init__()
+
+        if img_size % chunk_size:
+            raise Exception("`chunk_size` must divide `img_size`")
+
+        if (chunk_size**2) % num_heads:
+            raise Exception("`num_heads` must divide the square of `chunk_size`")
+
+        self.positional_embeddigns = torch.rand((chunk_size**2,))
+
+        self.linears = nn.ModuleList(
+            [
+                nn.Linear(chunk_size**2, chunk_size**2)
+                for _ in range((img_size // chunk_size) ** 2)
+            ]
+        )
+
+        self.attention = MultiHeadAttention(num_heads, chunk_size**2)
+
+        self.encoder_mlp = nn.Sequential(
+            nn.Linear(img_size**2 + chunk_size**2, mlp_rank),
+            nn.GELU(),
+            nn.Linear(mlp_rank, img_size**2 + chunk_size**2),
+        )
+
+        self.linear = nn.Linear(img_size**2 + chunk_size**2, num_classes)
