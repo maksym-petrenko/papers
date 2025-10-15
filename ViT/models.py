@@ -84,7 +84,7 @@ class ViT(nn.Module):
         num_classes: int,
     ):
 
-        self.super.__init__()
+        super().__init__()
         self.img_size = img_size
         self.chunk_size = chunk_size
 
@@ -94,7 +94,11 @@ class ViT(nn.Module):
         if (chunk_size**2) % num_heads:
             raise Exception("`num_heads` must divide the square of `chunk_size`")
 
-        self.positional_embeddigns = nn.Parameter(torch.rand((chunk_size**2,)))
+        num_patches = (img_size // chunk_size) ** 2
+        self.d_model = chunk_size ** 2
+
+        self.class_token = nn.Parameter(torch.randn(1, 1, self.d_model))
+        self.positional_embeddings = nn.Parameter(torch.randn(1, num_patches + 1, self.d_model))
 
         self.weights = nn.Parameter(torch.rand(num_heads, chunk_size ** 2, chunk_size ** 2))
         self.biases = nn.Parameter(torch.rand(num_heads, chunk_size ** 2))
@@ -102,31 +106,56 @@ class ViT(nn.Module):
         self.attention = MultiHeadAttention(num_heads, chunk_size**2)
 
         self.encoder_mlp = nn.Sequential(
-            nn.Linear(img_size**2 + chunk_size**2, mlp_rank),
+            nn.Linear(self.d_model, mlp_rank),
             nn.GELU(),
-            nn.Linear(mlp_rank, img_size**2 + chunk_size**2),
+            nn.Linear(mlp_rank, self.d_model),
         )
 
-        self.linear = nn.Linear(img_size**2 + chunk_size**2, num_classes)
+        self.layer_norm1 = nn.LayerNorm(self.d_model)
+        self.layer_norm2 = nn.LayerNorm(self.d_model)
+
+        self.linear = nn.Linear(self.d_model, num_classes)
 
     def forward(self, x):
+        batch_size = x.size(0)
 
+        # Extract patches
         x = self.crop(x)
 
-        x = torch.einsum("bhi,hoi->bho", x, self.weights) + self.biases
-        x = torch.cat((x, self.positional_embeddigns.repead((x.size(1), 1)), dim=1)
+        # Apply patch embedding (linear projection)
+        x = torch.einsum("bni,hni->bhn", x, self.weights) + self.biases.unsqueeze(0)
+        x = x.reshape(batch_size, -1, self.d_model)
 
-        x = x + self.attention(layer_norm(x))
-        x = x + self.encoder_mlp(layer_norm(x))
+        # Prepend class token
+        class_tokens = self.class_token.expand(batch_size, -1, -1)
+        x = torch.cat([class_tokens, x], dim=1)
 
-        x = self.linear(x)
+        # Add positional embeddings
+        x = x + self.positional_embeddings
 
-        return softmax(x, dim=1)
+        # Transformer encoder block
+        x = x + self.attention(self.layer_norm1(x), self.layer_norm1(x), self.layer_norm1(x))
+        x = x + self.encoder_mlp(self.layer_norm2(x))
+
+        # Classification head (use only class token)
+        cls_token_output = x[:, 0]
+        x = self.linear(cls_token_output)
+
+        return softmax(x, dim=-1)
 
     def crop(self, imgs):
+        # imgs shape: (batch, channels, height, width)
+        batch_size = imgs.size(0)
+        num_chunks_per_side = self.img_size // self.chunk_size
 
-        num_chunks = (self.img_size // self.chunk_size) ** 2
+        # Reshape to extract patches
+        # (batch, channels, num_patches_h, chunk_size, num_patches_w, chunk_size)
+        x = imgs.reshape(batch_size, -1, num_chunks_per_side, self.chunk_size,
+                        num_chunks_per_side, self.chunk_size)
 
-        result = imgs.chunk(num_chunks, -1).chunk(num_chunks, -2)
+        # Rearrange to (batch, num_patches, patch_dim)
+        x = x.permute(0, 2, 4, 1, 3, 5).contiguous()
+        num_patches = num_chunks_per_side ** 2
+        x = x.reshape(batch_size, num_patches, -1)
 
-        return result.reshpae(-1, num_chunks, self.chunk_size**2)
+        return x
