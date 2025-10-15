@@ -112,10 +112,14 @@ class ViT(nn.Module):
 
         self.linear = nn.Linear(img_size**2 + chunk_size**2, num_classes)
 
-    def forward(self, x): ...
+    def forward(self, x):
+
+        x = self.crop(x)
 
     def crop(self, imgs):
 
-        num_chunks = self.img_size // self.chunk_size
+        num_chunks = (self.img_size // self.chunk_size) ** 2
 
-        return imgs.chunk(num_chunks, -1).chunk(num_chunks, -2)
+        result = imgs.chunk(num_chunks, -1).chunk(num_chunks, -2)
+
+        return result.reshpae(-1, num_chunks, self.chunk_size**2)
